@@ -15,11 +15,7 @@ export async function createLineUp(req, res, next) {
 
   try {
     // 계정 존재 여부
-    const account = await prisma.accounts.findUnique({
-      where: { accountId: +accountId },
-    });
-    if (!account) throw throwError('계정을 찾을 수 없습니다.', 404);
-    else if (+authAccountId !== +accountId) throw throwError('권한이 없습니다.', 403);
+    await checkAccount(prisma, +accountId, +authAccountId);
 
     // 선수 보유 여부
     const roaster = await prisma.roaster.findMany({
