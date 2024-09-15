@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model accounts {
+  accountId Int @id @default(autoincrement())
+  id String @unique @db.Char(16)
+  password String @db.Char(16)
+  name String @db.Char(4)
+  rankScore Int
+
+  roaster roaster[]
+  lineUp lineUp[]
+  cashLog cashLog[]
+
+  host game[] @relation("host")
+  opponent game[] @relation("opponent")
+}
+
+model roaster {
+  roasterId Int @id @default(autoincrement())
+  accountId Int 
+  playerId Int
+  rank String @default("normal")
+
+  lineUp lineUp?
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+  player players @relation(fields: [playerId], references: [playerId], onDelete: Cascade)
+}
+
+model lineUp {
+  lineUpId Int @id @default(autoincrement())
+  accountId Int 
+  roasterId Int @unique
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+  roaster roaster @relation(fields: [roasterId], references: [roasterId], onDelete: Cascade)
+}
+
+model players {
+  playerId Int @id @default(autoincrement())
+  playerName String
+  speed Int
+  shootAccuracy Int
+  shootPower Int
+  defense Int
+  stamina Int
+  style String
+  pickUpRate Int
+  price Int
+
+  roaster roaster[]
+}
+
+model game {
+  gameId Int @id @default(autoincrement())
+  hostId Int
+  opponentId Int
+  win Boolean
+  hostScore Int
+  opponentScore Int
+
+  host accounts @relation("host", fields: [hostId], references: [accountId], onDelete: Cascade)
+  opponent accounts @relation("opponent",fields: [opponentId], references: [accountId], onDelete: Cascade)
+}
+
+model cashLog {
+  cashLogId Int @id @default(autoincrement())
+  accountId Int
+  totalCash Int
+  purpose String
+  cashChange Int
+  createAt DateTime @default(now())
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+}
+
