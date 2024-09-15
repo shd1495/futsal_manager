@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma/index.js';
+import { throwError } from '../utils/error.handle.js';
 
 /**
  * 팀 편성 로직
@@ -17,9 +18,8 @@ export async function createLineUp(req, res, next) {
     const account = await prisma.accounts.findUnique({
       where: { accountId: +accountId },
     });
-    if (!account) return res.status(404).json({ message: '계정을 찾을 수 없습니다.' });
-    else if (+authAccountId !== +accountId)
-      return res.status(403).json({ message: '권한이 없습니다.' });
+    if (!account) throw throwError('계정을 찾을 수 없습니다.', 404);
+    else if (+authAccountId !== +accountId) throw throwError('권한이 없습니다.', 403);
 
     // 선수 보유 여부
     const roaster = await prisma.roaster.findMany({
@@ -28,13 +28,12 @@ export async function createLineUp(req, res, next) {
         roasterId: true,
       },
     });
-    if (roaster.length < 3) return res.status(400).json({ message: '선수가 부족합니다.' });
+    if (roaster.length < 3) throw throwError('선수가 부족합니다.', 400);
 
     // 보유하지 않은 선수가 포함된 경우
     const roasterArr = roaster.map((item) => item.roasterId);
     const notIncludes = roasterIds.filter((id) => !roasterArr.includes(id));
-    if (notIncludes.length > 0)
-      return res.status(400).json({ message: '보유하지 않은 선수가 포함 되어있습니다.' });
+    if (notIncludes.length > 0) throw throwError('보유하지 않은 선수가 포함 되어있습니다.', 400);
 
     // 팀 편성
     await prisma.$transaction(async (tx) => {
