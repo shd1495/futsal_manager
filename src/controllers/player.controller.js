@@ -11,7 +11,7 @@ import { checkAccount } from '../utils/validation.js';
  */
 export async function createLineUp(req, res, next) {
   const { accountId } = req.params;
-  const { roasterIds } = req.body;
+  const { rosterIds } = req.body;
   const { authAccountId } = req.account;
 
   try {
@@ -19,17 +19,17 @@ export async function createLineUp(req, res, next) {
     await checkAccount(prisma, +accountId, +authAccountId);
 
     // 선수 보유 여부
-    const roaster = await prisma.roaster.findMany({
+    const roster = await prisma.roster.findMany({
       where: { accountId: +accountId },
       select: {
-        roasterId: true,
+        rosterId: true,
       },
     });
-    if (roaster.length < 3) throw throwError('선수가 부족합니다.', 400);
+    if (roster.length < 3) throw throwError('선수가 부족합니다.', 400);
 
     // 보유하지 않은 선수가 포함된 경우
-    const roasterArr = roaster.map((item) => item.roasterId);
-    const notIncludes = roasterIds.filter((id) => !roasterArr.includes(id));
+    const rosterArr = roster.map((item) => item.rosterId);
+    const notIncludes = rosterIds.filter((id) => !rosterArr.includes(id));
     if (notIncludes.length > 0) throw throwError('보유하지 않은 선수가 포함 되어있습니다.', 400);
 
     // 팀 편성
@@ -40,11 +40,11 @@ export async function createLineUp(req, res, next) {
       });
 
       // 편성 추가
-      const createLineUp = roasterIds.map((roasterId) => {
+      const createLineUp = rosterIds.map((rosterId) => {
         tx.lineUp.create({
           data: {
             accountId: +accountId,
-            roasterId: roasterId,
+            rosterId: rosterId,
           },
         });
       });
@@ -67,7 +67,7 @@ export async function createLineUp(req, res, next) {
  */
 export async function sellPlayer(req, res, next) {
   const accountId = +req.params.accountId;
-  const roasterId = +req.body.roasterId;
+  const rosterId = +req.body.rosterId;
   const authAccountId = +req.account.accountId;
 
   try {
@@ -75,10 +75,10 @@ export async function sellPlayer(req, res, next) {
     const account = await checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 정보
-    const roaster = await prisma.roaster.findUnique({
-      where: { roasterId, accountId },
+    const roster = await prisma.roster.findUnique({
+      where: { rosterId, accountId },
     });
-    if (!roaster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
+    if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     // 가장 최근 캐쉬 변동 내역
     const cashLog = await prisma.cashLog.findFirst({
@@ -89,7 +89,7 @@ export async function sellPlayer(req, res, next) {
 
     // 선수 정보
     const player = await prisma.players.findFirst({
-      where: { playerId: +roaster.playerId },
+      where: { playerId: +roster.playerId },
     });
     if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
 
@@ -105,8 +105,8 @@ export async function sellPlayer(req, res, next) {
       });
 
       // 선수 판매
-      await tx.roaster.delete({
-        where: { roasterId: roasterId, accountId: accountId },
+      await tx.roster.delete({
+        where: { rosterId: rosterId, accountId: accountId },
       });
       return result;
     });

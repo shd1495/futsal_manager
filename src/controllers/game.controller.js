@@ -53,13 +53,13 @@ export async function matchMaking(req, res, next) {
     // 내 팀 점수
     let hostScore = 0;
     for (const lineUp of hostlineUp) {
-      const roaster = await prisma.roaster.findUnique({
-        where: { roasterId: +lineUp.roasterId },
+      const roster = await prisma.roster.findUnique({
+        where: { rosterId: +lineUp.rosterId },
       });
-      if (!roaster) throw throwError('로스터를 찾을 수 없습니다.', 404);
+      if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 
       const player = await prisma.players.findUnique({
-        where: { playerId: +roaster.playerId },
+        where: { playerId: +roster.playerId },
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
@@ -73,13 +73,13 @@ export async function matchMaking(req, res, next) {
     // 상대 팀 점수
     let opponentScore = 0;
     for (const lineUp of opponentLineUp) {
-      const roaster = await prisma.roaster.findUnique({
-        where: { roasterId: +lineUp.roasterId },
+      const roster = await prisma.roster.findUnique({
+        where: { rosterId: +lineUp.rosterId },
       });
-      if (!roaster) throw throwError('로스터를 찾을 수 없습니다.', 404);
+      if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 
       const player = await prisma.players.findUnique({
-        where: { playerId: +roaster.playerId },
+        where: { playerId: +roster.playerId },
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 

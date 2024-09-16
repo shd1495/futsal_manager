@@ -20,7 +20,7 @@ model accounts {
   name String @db.Char(4)
   rankScore Int
 
-  roaster roaster[]
+  roster roster[]
   lineUp lineUp[]
   cashLog cashLog[]
 
@@ -28,8 +28,8 @@ model accounts {
   opponent game[] @relation("opponent")
 }
 
-model roaster {
-  roasterId Int @id @default(autoincrement())
+model roster {
+  rosterId Int @id @default(autoincrement())
   accountId Int 
   playerId Int
   rank String @default("normal")
@@ -43,10 +43,10 @@ model roaster {
 model lineUp {
   lineUpId Int @id @default(autoincrement())
   accountId Int 
-  roasterId Int @unique
+  rosterId Int @unique
 
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
-  roaster roaster @relation(fields: [roasterId], references: [roasterId], onDelete: Cascade)
+  roster roster @relation(fields: [rosterId], references: [rosterId], onDelete: Cascade)
 }
 
 model players {
@@ -61,7 +61,7 @@ model players {
   pickUpRate Int
   price Int
 
-  roaster roaster[]
+  roster roster[]
 }
 
 model game {
