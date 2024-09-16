@@ -9,7 +9,7 @@ import { checkAccount } from '../utils/validation.js';
  * @param {*} next
  * @returns
  */
-export async function createLineUp(req, res, next) {
+export async function createLineup(req, res, next) {
   const { accountId } = req.params;
   const { rosterIds } = req.body;
   const { authAccountId } = req.account;
@@ -40,7 +40,7 @@ export async function createLineUp(req, res, next) {
       });
 
       // 편성 추가
-      const createLineUp = rosterIds.map((rosterId) => {
+      const createLineup = rosterIds.map((rosterId) => {
         tx.lineup.create({
           data: {
             accountId: +accountId,
@@ -49,7 +49,7 @@ export async function createLineUp(req, res, next) {
         });
       });
 
-      await Promise.all(createLineUp);
+      await Promise.all(createLineup);
     });
 
     return res.status(201).json({ message: '팀 편셩이 완료되었습니다.' });
