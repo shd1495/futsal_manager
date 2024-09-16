@@ -2,6 +2,13 @@ import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
 import { checkAccount } from '../utils/validation.js';
 
+/**
+ * 매치메이킹 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
 export async function matchMaking(req, res, next) {
   const { accountId } = req.params;
   const { authAccountId } = req.account;
