@@ -35,13 +35,13 @@ export async function createLineUp(req, res, next) {
     // 팀 편성
     await prisma.$transaction(async (tx) => {
       // 기존 편성 삭제
-      await tx.lineUp.deleteMany({
+      await tx.lineup.deleteMany({
         where: { accountId: +accountId },
       });
 
       // 편성 추가
       const createLineUp = rosterIds.map((rosterId) => {
-        tx.lineUp.create({
+        tx.lineup.create({
           data: {
             accountId: +accountId,
             rosterId: rosterId,

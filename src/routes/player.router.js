@@ -1,5 +1,5 @@
 import express from 'express';
-import { createLineUp, sellPlayer } from '../controllers/player.controller.js';
+import { createLineup, sellPlayer } from '../controllers/player.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 /**
  * 팀 편성 API
  */
-router.post('/lineup/:accountId', authMiddleware, createLineUp);
+router.post('/lineup/:accountId', authMiddleware, createLineup);
 
 /**
  * 선수 판매 API

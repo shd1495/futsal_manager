@@ -18,10 +18,10 @@ export async function matchMaking(req, res, next) {
     const hostAccount = await checkAccount(prisma, +accountId, +authAccountId);
 
     // 내 팀 라인업
-    const hostlineUp = await prisma.lineUp.findMany({
+    const hostLineup = await prisma.lineup.findMany({
       where: { accountId: +accountId },
     });
-    if (hostlineUp.length < 3) throw throwError('팀 편성을 완료해주세요.');
+    if (hostLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
 
     // 상대 목록
     const opponentPool = await prisma.accounts.findMany({
@@ -35,13 +35,13 @@ export async function matchMaking(req, res, next) {
     if (opponentPool.length === 0) throw throwError('상대를 찾을 수 없습니다.', 404);
 
     // 상대 팀 라인업
-    let opponentLineUp = [];
+    let opponentLineup = [];
     let opponent;
     let cnt = 0;
-    while (opponentLineUp.length < 3) {
+    while (opponentLineup.length < 3) {
       opponent = opponentPool[Math.floor(Math.random() * opponentPool.length)];
 
-      opponentLineUp = await prisma.lineUp.findMany({
+      opponentLineup = await prisma.lineup.findMany({
         where: { accountId: +opponent.accountId },
       });
       cnt++;
@@ -52,9 +52,9 @@ export async function matchMaking(req, res, next) {
 
     // 내 팀 점수
     let hostScore = 0;
-    for (const lineUp of hostlineUp) {
+    for (const lineup of hostLineup) {
       const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineUp.rosterId },
+        where: { rosterId: +lineup.rosterId },
       });
       if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 
@@ -72,9 +72,9 @@ export async function matchMaking(req, res, next) {
 
     // 상대 팀 점수
     let opponentScore = 0;
-    for (const lineUp of opponentLineUp) {
+    for (const lineup of opponentLineup) {
       const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineUp.rosterId },
+        where: { rosterId: +lineup.rosterId },
       });
       if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 

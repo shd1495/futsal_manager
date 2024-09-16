@@ -21,7 +21,7 @@ model accounts {
   rankScore Int
 
   roster roster[]
-  lineUp lineUp[]
+  lineup lineup[]
   cashLog cashLog[]
 
   host game[] @relation("host")
@@ -34,14 +34,14 @@ model roster {
   playerId Int
   rank String @default("normal")
 
-  lineUp lineUp?
+  lineup lineup?
 
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
   player players @relation(fields: [playerId], references: [playerId], onDelete: Cascade)
 }
 
-model lineUp {
-  lineUpId Int @id @default(autoincrement())
+model lineup {
+  lineupId Int @id @default(autoincrement())
   accountId Int 
   rosterId Int @unique
 
