@@ -118,3 +118,33 @@ export async function sellPlayer(req, res, next) {
     next(error);
   }
 }
+
+/**
+ * 보유 선수 목록 조회 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function getPlayers(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account.accountId;
+
+  try {
+    // 계정
+    await checkAccount(prisma, accountId, authAccountId);
+
+    // 보유 선수 목록 조회
+    const roster = prisma.roster.findMany({
+      where: { accountId: accountId },
+      select: {
+        playerId: true,
+        rank: true,
+      },
+    });
+    if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
+
+    res.status(200).json({ data: roster });
+  } catch (error) {
+    next(error);
+  }
+}
