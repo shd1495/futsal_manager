@@ -10,17 +10,17 @@ import { checkAccount } from '../utils/validation.js';
  * @returns
  */
 export async function createLineup(req, res, next) {
-  const { accountId } = req.params;
-  const { rosterIds } = req.body;
-  const { authAccountId } = req.account;
+  const accountId = req.params.accountId;
+  const rosterIds = req.body.rosterIds;
+  const authAccountId = req.account.authAccountId;
 
   try {
     // 계정 존재 여부
-    await checkAccount(prisma, +accountId, +authAccountId);
+    await checkAccount(prisma, accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
-      where: { accountId: +accountId },
+      where: { accountId },
       select: {
         rosterId: true,
       },
@@ -34,27 +34,72 @@ export async function createLineup(req, res, next) {
     const notIncludes = rosterIds.filter((id) => !rosterArr.includes(id));
     if (notIncludes.length > 0) throw throwError('보유하지 않은 선수가 포함 되어있습니다.', 400);
 
-    // 팀 편성
+    /*// 팀 편성
     await prisma.$transaction(async (tx) => {
       // 기존 편성 삭제
       await tx.lineup.deleteMany({
-        where: { accountId: +accountId },
+        where: { accountId: accountId },
       });
 
       // 편성 추가
       const createLineup = rosterIds.map((rosterId) => {
         tx.lineup.create({
           data: {
-            accountId: +accountId,
+            accountId: accountId,
             rosterId: rosterId,
           },
         });
       });
 
       await Promise.all(createLineup);
-    });
+    });*/
 
-    return res.status(201).json({ message: '팀 편셩이 완료되었습니다.' });
+    // 기존 라인업 조회
+    const lineup = await prisma.lineup.findMany({
+      where: { accountId },
+    });
+    const existRosterIds = lineup.map((item) => item.rosterId);
+    const deleteCnt = lineup.length - 3;
+
+    // 라인업의 선수가 3명을 초과할 경우
+    if (deleteCnt > 0) {
+      // 삭제할 레코드의 ID를 추출
+      const ids = lineup.slice(0, deleteCnt).map((lineup) => lineup.lineupId);
+
+      // 해당 ID의 레코드 삭제
+      await prisma.lineup.deleteMany({
+        where: {
+          lineupId: { in: ids },
+        },
+      });
+    }
+
+    // 팀 편성
+    for (let i = 0; i < rosterIds.length; i++) {
+      const rosterId = rosterIds[i];
+      const existRosterId = existRosterIds[i];
+
+      // 기존 정보 업데이트
+      if (existRosterIds.length === 3) {
+        await prisma.lineup.update({
+          where: {
+            accountId,
+            rosterId: existRosterId,
+          },
+          data: { rosterId: rosterId },
+        });
+        // 첫 편성일 경우, 선수를 판매했을 경우 생성
+      } else if (existRosterIds.length < 3) {
+        await prisma.lineup.create({
+          data: {
+            accountId,
+            rosterId,
+          },
+        });
+      }
+    }
+
+    return res.status(201).json({ message: '팀 편성이 완료되었습니다.' });
   } catch (error) {
     next(error);
   }
@@ -88,6 +133,12 @@ export async function sellPlayer(req, res, next) {
       orderBy: { createAt: 'desc' },
     });
     if (!cashLog) throw throwError('캐시 기록이 존재하지 않습니다.', 404);
+
+    // 라인업에 존재하면
+    const lineup = await prisma.lineup.findMany({
+      where: { accountId },
+    });
+    if (lineup) throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
     // 선수 정보
     const player = await prisma.players.findFirst({
