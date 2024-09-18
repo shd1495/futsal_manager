@@ -43,6 +43,7 @@ export async function chargeCash(req, res, next) {
       },
     });
 
+    
     return res.status(201).json({
       message: '캐쉬 충전에 성공했습니다.',
       cash: result.totalCash,  // 충전 후 총 캐쉬 금액
