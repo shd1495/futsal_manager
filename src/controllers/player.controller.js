@@ -27,6 +27,8 @@ export async function createLineup(req, res, next) {
     });
     if (roster.length < 3) throw throwError('선수가 부족합니다.', 400);
 
+    if (!rosterIds.length === 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
+
     // 보유하지 않은 선수가 포함된 경우
     const rosterArr = roster.map((item) => item.rosterId);
     const notIncludes = rosterIds.filter((id) => !rosterArr.includes(id));
