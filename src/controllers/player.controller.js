@@ -121,7 +121,7 @@ export async function sellPlayer(req, res, next) {
 
   try {
     // 계정
-    const account = await AccountService.checkAccount(prisma, accountId, authAccountId);
+    const account = await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
@@ -186,7 +186,7 @@ export async function getPlayers(req, res, next) {
 
   try {
     // 계정
-    await AccountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 목록 조회
     const roster = prisma.roster.findMany({
