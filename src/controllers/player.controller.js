@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
 import AccountService from '../services/account.service.js';
 
-const AccountService = new PlayerService(prisma);
+const accountService = new AccountService(prisma);
 
 /**
  * 팀 편성 로직
@@ -18,7 +18,7 @@ export async function createLineup(req, res, next) {
 
   try {
     // 계정 존재 여부
-    await AccountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
