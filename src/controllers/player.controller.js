@@ -1,8 +1,11 @@
 import { prisma } from '../utils/prisma/index.js';
+import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
 import AccountService from '../services/account.service.js';
 
 const accountService = new AccountService(prisma);
+
+const PICKUP_PRICE = 2000;
 
 /**
  * 팀 편성 로직
@@ -102,6 +105,83 @@ export async function createLineup(req, res, next) {
     }
 
     return res.status(201).json({ message: '팀 편성이 완료되었습니다.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 선수 뽑기 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
+export async function pickupPlayer(req, res, next) {
+  const accountId = +req.params.accountId;
+  const rosterId = +req.body.rosterId;
+  const authAccountId = +req.account.accountId;
+  const numPulls = +req.body.count; // 뽑기 횟수
+
+  try {
+    // 계정 인증+인가
+    await accountService.checkAccount(prisma, accountId, authAccountId);
+
+    // 잔액 확인
+    const cashLog = await prisma.cashLog.findFirst({
+      where: { accountId },
+      orderBy: { createAt: 'desc' },
+    });
+    if (!cashLog || cashLog.totalCash < PICKUP_PRICE * numPulls)
+      throw throwError('캐시 잔액이 부족합니다.', 402);
+
+    // 모든 선수 픽업확률 조회
+    const allPlayers = prisma.players.findMany({
+      select: {
+        playerId: true,
+        pickupRate: true,
+      },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      let result = [];
+
+      // 캐쉬 변동 내역
+      await tx.cashLog.create({
+        data: {
+          accountId: accountId,
+          totalCash: cashLog.totalCash - PICKUP_PRICE * numPulls,
+          purpose: `선수 뽑기 ${numPulls}회`,
+          cashChange: -PICKUP_PRICE * numPulls,
+        },
+      });
+
+      for (let i = 0; i < numPulls; i++) {
+        // 뽑기
+        let random = Math.random();
+        let rateSum = 0;
+        let pickup = null;
+        allPlayers.forEach((player) => {
+          sum += player.pickUpRate;
+          if (pickup === null && rateSum >= random) pickup = player;
+        });
+
+        // 뽑은 선수 보유목록에 추가
+        await tx.roster.create({
+          data: {
+            accountId: accountId,
+            playerId: pickup.playerId,
+          },
+        });
+        result.push(player);
+      }
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    }
+  );
+
+    return res.status(201).json({ data: result });
   } catch (error) {
     next(error);
   }
