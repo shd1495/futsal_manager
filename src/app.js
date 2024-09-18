@@ -4,6 +4,7 @@ import errorHandleMiddleware from './middlewares/error.handle.middleware.js';
 import playerRouter from './routes/player.router.js';
 import gameRouter from './routes/game.router.js';
 import accountRouter from './routes/account.router.js';
+import cashRouter from './routes/cash.router.js';
 
 dotenv.config();
 
@@ -12,8 +13,8 @@ const PORT = process.env.SECRET_PORT;
 
 app.use(express.json());
 
-//app.use('/api', [accountRouter, playerRouter, gameRouter]);
-app.use('/api', [accountRouter, playerRouter, gameRouter]);
+
+app.use('/api', [accountRouter, playerRouter, gameRouter, cashRouter]);
 app.use(errorHandleMiddleware);
 
 app.listen(PORT, () => {
