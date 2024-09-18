@@ -4,7 +4,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-
 function calculateValue(player) {
     const { speed, shootAccuracy, shootPower, defense, stamina } = player;
   
