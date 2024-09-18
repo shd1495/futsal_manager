@@ -12,7 +12,7 @@ router.post('/lineup/:accountId', authMiddleware, createLineup);
 /**
  * 선수 판매 API
  */
-router.post('/sell/:accountId', authMiddleware, sellPlayer);
+router.delete('/sell/:accountId', authMiddleware, sellPlayer);
 
 /**
  * 보유 선수 목록 조회 API
