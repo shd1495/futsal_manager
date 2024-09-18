@@ -4,9 +4,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = SECRET_PORT;
+const PORT = process.env.SECRET_PORT;
 
-app.use(express.json);
+app.use(express.json());
 
 app.use("/api");
 
