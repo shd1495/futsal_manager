@@ -1,6 +1,8 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import { checkAccount } from '../utils/validation.js';
+import AccountService from '../services/account.service.js';
+
+const AccountService = new PlayerService(prisma);
 
 /**
  * 팀 편성 로직
@@ -16,7 +18,7 @@ export async function createLineup(req, res, next) {
 
   try {
     // 계정 존재 여부
-    await checkAccount(prisma, accountId, authAccountId);
+    await AccountService.checkAccount(prisma, accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
@@ -119,11 +121,11 @@ export async function sellPlayer(req, res, next) {
 
   try {
     // 계정
-    const account = await checkAccount(prisma, accountId, authAccountId);
+    const account = await AccountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
-      where: { rosterId, accountId },
+      where: { accountId, rosterId },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
@@ -184,7 +186,7 @@ export async function getPlayers(req, res, next) {
 
   try {
     // 계정
-    await checkAccount(prisma, accountId, authAccountId);
+    await AccountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 목록 조회
     const roster = prisma.roster.findMany({
