@@ -4,7 +4,7 @@ import express from 'express';
 const router = express.Router();
 
 //회원 가입 
-router.post(`acccount/sign`, async (req, res)=>{
+router.post('acccount/sign', async (req, res)=>{
  const joinchema = Joi.object({
     id: Joi.string().alphauunm().required(),
     passwoed: Joi.string().min(6).require(),
@@ -35,7 +35,7 @@ router.post(`acccount/sign`, async (req, res)=>{
    .json({id_info:{id:signAccount.id, name: signAccount.name}});
 });
 //로그인
-router.post(`/account/login`,async(req,res)=>{
+router.post('/account/login',async(req,res)=>{
    const loginScheme = Joi.object({
       id: Joi.string().alphauunm().required(),
       passwoed: Joi.string().min(6).required(),
