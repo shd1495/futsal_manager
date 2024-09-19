@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
 import AccountService from '../services/account.service.js';
+import calculateValue from '../utils/updatePlayers.js';
 
 const accountService = new AccountService(prisma);
 
@@ -53,7 +54,15 @@ export async function matchMaking(req, res, next) {
     }
 
     // 내 팀 점수
-    let hostScore = 0;
+    const hostStyle = []; // 스타일
+    const hostStats = {
+      speed: 0,
+      shootAccuracy: 0,
+      shootPower: 0,
+      defense: 0,
+      stamina: 0,
+    };
+    let hostValue = 0; // 라인업 가치
     for (const lineup of hostLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
@@ -65,15 +74,35 @@ export async function matchMaking(req, res, next) {
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
-      hostScore += player.speed * 0.3;
-      hostScore += player.shootAccuracy * 0.3;
-      hostScore += player.shootPower * 0.25;
-      hostScore += player.defense * 0.05;
-      hostScore += player.stamina * 0.1;
+      hostStyle.push(player.style);
+
+      hostStats.speed += player.speed;
+      hostStats.shootAccuracy += player.shootAccuracy;
+      hostStats.shootPower += player.shootPower;
+      hostStats.defense += player.defense;
+      hostStats.stamina += player.stamina;
+
+      hostValue += calculateValue(player);
+    }
+
+    // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
+    let isHostStyle = ''; // 팀 컬러
+    const hostCountMap = {};
+    for (const item of hostStyle) {
+      hostCountMap[item] = (hostCountMap[item] || 0) + 1;
+      if (hostCountMap[item] >= 2) isHostStyle = item;
     }
 
     // 상대 팀 점수
-    let opponentScore = 0;
+    const opponentStyle = [];
+    const opponentStats = {
+      speed: 0,
+      shootAccuracy: 0,
+      shootPower: 0,
+      defense: 0,
+      stamina: 0,
+    };
+    let opponentValue = 0; // 라인업 가치
     for (const lineup of opponentLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
@@ -85,27 +114,98 @@ export async function matchMaking(req, res, next) {
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
-      opponentScore += player.speed * 0.3;
-      opponentScore += player.shootAccuracy * 0.3;
-      opponentScore += player.shootPower * 0.25;
-      opponentScore += player.defense * 0.05;
-      opponentScore += player.stamina * 0.1;
+      opponentStyle.push(player.style);
+
+      opponentStats.speed += player.speed;
+      opponentStats.shootAccuracy += player.shootAccuracy;
+      opponentStats.shootPower += player.shootPower;
+      opponentStats.defense += player.defense;
+      opponentStats.stamina += player.stamina;
+
+      opponentValue += calculateValue(player);
     }
 
-    // 경기 로직
-    const maxScore = hostScore + opponentScore; //host 300, opponentScore 237.1 537.1
-    const randomValue = Math.random() * maxScore;
-    let result = [];
-    if (randomValue < hostScore) {
-      // host 승리 처리
-      const hostScore = Math.floor(Math.random() * 4) + 1; // 1에서 4 사이
-      const opponentScore = Math.floor(Math.random() * Math.min(2, hostScore)); // aScore보다 작은 값을 설정
-      result = [true, hostScore, opponentScore];
-    } else {
-      // opponent 승리 처리
-      const opponentScore = Math.floor(Math.random() * 4) + 1; // 1에서 4 사이
-      const hostScore = Math.floor(Math.random() * Math.min(2, opponentScore)); // bScore보다 작은 값을 설정
-      result = [false, hostScore, opponentScore];
+    // 같은 팀 컬러가 2개 이상이면 팀 컬러 성정
+    let isOpponentStyle = ''; // 팀 컬러
+    const OpponentCountMap = {};
+    for (const item of opponentStyle) {
+      OpponentCountMap[item] = (OpponentCountMap[item] || 0) + 1;
+      if (OpponentCountMap[item] >= 2) isOpponentStyle = item;
+    }
+
+    // 팀 컬러 상성
+    const advantageMap = {
+      highPressing: 'poacher',
+      poacher: 'targetMan',
+      targetMan: 'highPressing',
+    };
+
+    // host 상성이 유리하거나 상대가 팀컬러가 없으면
+    if (advantageMap[isHostStyle] == isOpponentStyle || (isHostStyle && !isOpponentStyle)) {
+      hostStats.speed *= 1.1;
+      hostStats.shootAccuracy *= 1.1;
+      hostStats.shootPower *= 1.1;
+      hostStats.defense *= 1.1;
+      hostStats.stamina *= 1.1;
+    }
+    // opponent 상성이 유리하거나 상대가 팀컬러가 없으면
+    if (advantageMap[isOpponentStyle] == isHostStyle || (!isHostStyle && isOpponentStyle)) {
+      opponentStats.speed *= 1.1;
+      opponentStats.shootAccuracy *= 1.1;
+      opponentStats.shootPower *= 1.1;
+      opponentStats.defense *= 1.1;
+      opponentStats.stamina *= 1.1;
+    }
+
+    let ball = 0;
+    const goal = [0, 0];
+    for (let i = 0; i < 10; i++) {
+      // host 축구력?
+      let host = hostStats.speed + hostStats.defense + hostStats.stamina;
+      // opponent 축구력?
+      let opponent = opponentStats.speed + opponentStats.defense + opponentStats.stamina;
+
+      // 스탯 차이에 따라 공 이동 거리 계산 (양 팀 간 스탯 차이의 비율 사용)
+      const statDifference = host - opponent; //
+      const advantage = statDifference / (host + opponent) / 2; // 스탯 차이 비율
+      const baseMovement = Math.round(advantage * 100); // 기본 이동 거리를 스탯 비율로 설정
+
+      // 공 이동 및 이동 거리 (랜덤 요소 추가)
+      const randomFactor = Math.round(Math.random() * 30) - 15; // - 15 ~ 15
+      ball += baseMovement + randomFactor;
+
+      // host 골 찬스
+      if (ball >= 80) {
+        const goalRate = (hostStats.shootAccuracy + hostStats.shootPower) / 2;
+        // 골 확률
+        if (goalRate > Math.random() * 100) goal[0] += 1;
+        ball = 0;
+      }
+
+      // opponent 골 찬스
+      if (ball <= -80) {
+        const goalRate = (opponentStats.shootAccuracy + opponentStats.shootPower) / 2;
+        // 골 확률
+        if (goalRate > Math.random() * 100) goal[1] += 1;
+        ball = 0;
+      }
+
+      // 경기 진행도에 따른 스탯 감소
+      hostStats.stamina -= i * 2;
+      if (hostStats.stamina < 150) host *= 0.95;
+      else if (hostStats.stamina < 100) host *= 0.9;
+      else if (hostStats.stamina < 50) host *= 0.8;
+      else host *= 0.7;
+
+      opponentStats.stamina -= i * 2;
+      if (opponentStats.stamina < 150) opponent *= 0.95;
+      else if (opponentStats.stamina < 100) opponent *= 0.9;
+      else if (opponentStats.stamina < 50) opponent *= 0.8;
+      else opponent *= 0.7;
+    }
+
+    // 무승부일 경우 승부차기
+    if (goal[0] === goal[1]) {
     }
 
     const game = await prisma.$transaction(async (tx) => {
