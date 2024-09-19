@@ -24,6 +24,7 @@ model accounts {
   lineup lineup[]
   cashLog cashLog[]
   pickupToken pickupToken[]
+  pickupTokenLog pickupTokenLog[]
 
   host game[] @relation("host")
   opponent game[] @relation("opponent")
@@ -90,6 +91,18 @@ model pickupToken {
   pickupTokenId Int @id @default(autoincrement())
   accountId Int
   type String 
+  createAt DateTime @default(now())
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+}
+
+model pickupTokenLog {
+  pickupTokenLogId Int @id @default(autoincrement())
+  accountId Int
+  type String 
+  purpose String
+  amount Int
+  createAt DateTime @default(now())
 
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
 }

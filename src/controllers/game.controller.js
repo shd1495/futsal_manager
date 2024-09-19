@@ -93,7 +93,7 @@ export async function matchMaking(req, res, next) {
     }
 
     // 경기 로직
-    const maxScore = hostScore + opponentScore;
+    const maxScore = hostScore + opponentScore; //host 300, opponentScore 237.1 537.1
     const randomValue = Math.random() * maxScore;
     let result = [];
     if (randomValue < hostScore) {
