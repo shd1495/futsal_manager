@@ -58,8 +58,6 @@ model players {
   defense Int
   stamina Int
   style String
-  pickUpRate Int
-  price Int
 
   roster roster[]
 }

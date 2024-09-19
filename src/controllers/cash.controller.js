@@ -1,6 +1,8 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import { checkAccount } from '../utils/validation.js';
+import AccountService from '../services/account.service.js';
+
+const accountService = new AccountService(prisma);
 
 /**
  * 캐쉬 충전 로직
@@ -16,7 +18,7 @@ export async function chargeCash(req, res, next) {
 
   try {
     // 계정 존재 여부 및 권한 확인
-    await checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 충전 금액이 유효한지 확인 (0 이상이어야 함)
     if (amount <= 0) throw throwError('충전 금액은 0보다 커야 합니다.', 400);
@@ -38,17 +40,16 @@ export async function chargeCash(req, res, next) {
       data: {
         accountId: accountId,
         totalCash: updatedCash,
-        purpose: '캐쉬 충전',
+        purpose: 'charge',
         cashChange: amount,
       },
     });
 
-    
     return res.status(201).json({
       message: '캐쉬 충전에 성공했습니다.',
-      cash: result.totalCash,  // 충전 후 총 캐쉬 금액
+      cash: result.totalCash, // 충전 후 총 캐쉬 금액
     });
   } catch (error) {
-    next(error);  // 에러 핸들링 미들웨어로 넘기기
+    next(error); // 에러 핸들링 미들웨어로 넘기기
   }
 }

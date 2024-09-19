@@ -143,43 +143,44 @@ export async function pickupPlayer(req, res, next) {
       },
     });
 
-    await prisma.$transaction(async (tx) => {
-      let result = [];
+    await prisma.$transaction(
+      async (tx) => {
+        let result = [];
 
-      // 캐쉬 변동 내역
-      await tx.cashLog.create({
-        data: {
-          accountId: accountId,
-          totalCash: cashLog.totalCash - PICKUP_PRICE * numPulls,
-          purpose: `선수 뽑기 ${numPulls}회`,
-          cashChange: -PICKUP_PRICE * numPulls,
-        },
-      });
-
-      for (let i = 0; i < numPulls; i++) {
-        // 뽑기
-        let random = Math.random();
-        let rateSum = 0;
-        let pickup = null;
-        allPlayers.forEach((player) => {
-          sum += player.pickUpRate;
-          if (pickup === null && rateSum >= random) pickup = player;
-        });
-
-        // 뽑은 선수 보유목록에 추가
-        await tx.roster.create({
+        // 캐쉬 변동 내역
+        await tx.cashLog.create({
           data: {
             accountId: accountId,
-            playerId: pickup.playerId,
+            totalCash: cashLog.totalCash - PICKUP_PRICE * numPulls,
+            purpose: `pickup ${numPulls} times`,
+            cashChange: -PICKUP_PRICE * numPulls,
           },
         });
-        result.push(player);
-      }
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }
-  );
+
+        for (let i = 0; i < numPulls; i++) {
+          // 뽑기
+          let random = Math.random();
+          let rateSum = 0;
+          let pickup = null;
+          allPlayers.forEach((player) => {
+            sum += player.pickUpRate;
+            if (pickup === null && rateSum >= random) pickup = player;
+          });
+
+          // 뽑은 선수 보유목록에 추가
+          await tx.roster.create({
+            data: {
+              accountId: accountId,
+              playerId: pickup.playerId,
+            },
+          });
+          result.push(player);
+        }
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    );
 
     return res.status(201).json({ data: result });
   } catch (error) {

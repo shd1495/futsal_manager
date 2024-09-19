@@ -1,6 +1,8 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import { checkAccount } from '../utils/validation.js';
+import AccountService from '../services/account.service.js';
+
+const accountService = new AccountService(prisma);
 
 /**
  * 매치메이킹 로직
@@ -15,7 +17,7 @@ export async function matchMaking(req, res, next) {
 
   try {
     // 계정 검증
-    const hostAccount = await checkAccount(prisma, +accountId, +authAccountId);
+    const hostAccount = await accountService.checkAccount(prisma, +accountId, +authAccountId);
 
     // 내 팀 라인업
     const hostLineup = await prisma.lineup.findMany({
