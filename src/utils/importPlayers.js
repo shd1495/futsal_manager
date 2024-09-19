@@ -19,6 +19,7 @@ function getRandomStyle() {
   return styles[Math.floor(Math.random() * styles.length)];
 }
 
+
 function calculateValue(player) {
   const { speed, shootAccuracy, shootPower, defense, stamina } = player;
   const sum = speed + shootAccuracy + shootPower + defense + stamina;
