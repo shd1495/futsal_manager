@@ -15,9 +15,9 @@ const PICKUP_PRICE = 2000;
  * @returns
  */
 export async function createLineup(req, res, next) {
-  const accountId = req.params.accountId;
-  const rosterIds = req.body.rosterIds;
-  const authAccountId = req.account.authAccountId;
+  const accountId = +req.params.accountId;
+  const rosterIds = +req.body.rosterIds;
+  const authAccountId = +req.account.authAccountId;
 
   try {
     // 계정 존재 여부
@@ -202,7 +202,7 @@ export async function sellPlayer(req, res, next) {
 
   try {
     // 계정
-    const account = await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
