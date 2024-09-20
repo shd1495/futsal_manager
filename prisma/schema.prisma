@@ -26,8 +26,8 @@ model accounts {
   pickupToken pickupToken[]
   pickupTokenLog pickupTokenLog[]
 
-  host game[] @relation("host")
-  opponent game[] @relation("opponent")
+  home game[] @relation("home")
+  away game[] @relation("away")
 }
 
 model roster {
@@ -66,14 +66,14 @@ model players {
 
 model game {
   gameId Int @id @default(autoincrement())
-  hostId Int
-  opponentId Int
+  homeId Int
+  awayId Int
   win Boolean
-  hostScore Int
-  opponentScore Int
+  homeScore Int
+  awayScore Int
 
-  host accounts @relation("host", fields: [hostId], references: [accountId], onDelete: Cascade)
-  opponent accounts @relation("opponent",fields: [opponentId], references: [accountId], onDelete: Cascade)
+  home accounts @relation("home", fields: [homeId], references: [accountId], onDelete: Cascade)
+  away accounts @relation("away",fields: [awayId], references: [accountId], onDelete: Cascade)
 }
 
 model cashLog {

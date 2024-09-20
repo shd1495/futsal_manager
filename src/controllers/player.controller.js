@@ -232,7 +232,7 @@ export async function sellPlayer(req, res, next) {
 
   try {
     // 계정
-    const account = await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(prisma, accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
