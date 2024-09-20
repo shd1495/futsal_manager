@@ -6,54 +6,48 @@ import calculateValue from '../utils/updatePlayers.js';
 
 const accountService = new AccountService(prisma);
 
-async function penaltyKick(hostLineup, opponentLineup) {
-  
+async function penaltyKick(homeLineup, awayLineup) {
   // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
-  let hostDefender = hostLineup[0]; // 첫 번째 선수를 기본으로 설정
-  for (let i = 1; i < hostLineup.length; i++) {
-    if (hostLineup[i].defense > hostDefender.defense) {
-      hostDefender = hostLineup[i];
+  let homeDefender = homeLineup[0]; // 첫 번째 선수를 기본으로 설정
+  for (let i = 1; i < homeLineup.length; i++) {
+    if (homeLineup[i].defense > homeDefender.defense) {
+      homeDefender = homeLineup[i];
     }
   }
 
   // 상대 팀에서 defense 값이 가장 높은 선수 찾기
-  let opponentDefender = opponentLineup[0]; // 첫 번째 선수를 기본으로 설정
-  for (let i = 1; i < opponentLineup.length; i++) {
-    if (opponentLineup[i].defense > opponentDefender.defense) {
-      opponentDefender = opponentLineup[i];
+  let awayDefender = awayLineup[0]; // 첫 번째 선수를 기본으로 설정
+  for (let i = 1; i < awayLineup.length; i++) {
+    if (awayLineup[i].defense > awayDefender.defense) {
+      awayDefender = awayLineup[i];
     }
   }
 
   // 승부차기 로직
-  let hostPenaltyScore = 0;
-  let opponentPenaltyScore = 0;
+  let homePenaltyScore = 0;
+  let awayPenaltyScore = 0;
   let round = 1;
 
-  while (round <= 3 || hostPenaltyScore === opponentPenaltyScore) {
+  while (round <= homeLineup.length || homePenaltyScore === awayPenaltyScore) {
     // 공격자는 라인업 순서대로 돌아가며 슛을 함
-    const hostAttacker = hostLineup[(round - 1) % hostLineup.length];
-    const opponentAttacker = opponentLineup[(round - 1) % opponentLineup.length];
+    const homeAttacker = homeLineup[(round - 1) % homeLineup.length];
+    const awayAttacker = awayLineup[(round - 1) % awayLineup.length];
 
     // 호스트 팀의 공격: 호스트 공격자 vs 상대 수비자
-    if (performkick(hostAttacker, opponentDefender)) {
-      hostPenaltyScore++;
+    if (performKick(homeAttacker, awayDefender)) {
+      homePenaltyScore++;
     }
 
     // 상대 팀의 공격: 상대 공격자 vs 호스트 수비자
-    if (performKick(opponentAttacker, hostDefender)) {
-      opponentPenaltyScore++;
-    } 
-
-    // 승부가 나면 종료, 3라운드 후에도 같으면 계속 반복
-    if (round >= 3 && hostPenaltyScore !== opponentPenaltyScore) {
-      break;
+    if (performKick(awayAttacker, homeDefender)) {
+      awayPenaltyScore++;
     }
 
     round++;
   }
 
   // 결과 반환
-  if (hostPenaltyScore > opponentPenaltyScore) {
+  if (homePenaltyScore > awayPenaltyScore) {
     return true;
   } else {
     return false;
@@ -69,7 +63,6 @@ function performKick(attacker, defender) {
   return randomAttack > randomDefense;
 }
 
-
 /**
  * 매치메이킹 로직
  * @param {*} req
@@ -83,35 +76,35 @@ export async function matchMaking(req, res, next) {
 
   try {
     // 계정 검증
-    const hostAccount = await accountService.checkAccount(prisma, +accountId, +authAccountId);
+    const homeAccount = await accountService.checkAccount(prisma, +accountId, +authAccountId);
 
     // 내 팀 라인업
-    const hostLineup = await prisma.lineup.findMany({
+    const homeLineup = await prisma.lineup.findMany({
       where: { accountId: +accountId },
     });
-    if (hostLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
+    if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
 
     // 상대 목록
     // 여기서 lineup.length === 3인 애들만 필터링
-    const opponentPool = await prisma.accounts.findMany({
+    const awayPool = await prisma.accounts.findMany({
       where: {
         rankScore: {
-          gte: hostAccount.rankScore - 50, // 최대 + 50
-          lte: hostAccount.rankScore + 50, // 최소 - 50
+          gte: homeAccount.rankScore - 50, // 최대 + 50
+          lte: homeAccount.rankScore + 50, // 최소 - 50
         },
       },
     });
-    if (opponentPool.length === 0) throw throwError('상대를 찾을 수 없습니다.', 404);
+    if (awayPool.length === 0) throw throwError('상대를 찾을 수 없습니다.', 404);
 
     // 상대 팀 라인업
-    let opponentLineup = [];
-    let opponent;
+    let awayLineup = [];
+    let away;
     let cnt = 0;
-    while (opponentLineup.length < 3) {
-      opponent = opponentPool[Math.floor(Math.random() * opponentPool.length)];
+    while (awayLineup.length < 3) {
+      away = awayPool[Math.floor(Math.random() * awayPool.length)];
 
-      opponentLineup = await prisma.lineup.findMany({
-        where: { accountId: +opponent.accountId },
+      awayLineup = await prisma.lineup.findMany({
+        where: { accountId: +away.accountId },
       });
       cnt++;
       if (cnt >= 100) {
@@ -120,16 +113,16 @@ export async function matchMaking(req, res, next) {
     }
 
     // 내 팀 점수
-    const hostStyle = []; // 스타일
-    const hostStats = {
+    const homeStyle = []; // 스타일
+    const homeStats = {
       speed: 0,
       shootAccuracy: 0,
       shootPower: 0,
       defense: 0,
       stamina: 0,
     };
-    let hostValue = 0; // 라인업 가치
-    for (const lineup of hostLineup) {
+    let homeValue = 0; // 라인업 가치
+    for (const lineup of homeLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
       });
@@ -140,36 +133,42 @@ export async function matchMaking(req, res, next) {
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
-      hostStyle.push(player.style);
+      homeStyle.push(player.style);
 
-      hostStats.speed += player.speed;
-      hostStats.shootAccuracy += player.shootAccuracy;
-      hostStats.shootPower += player.shootPower;
-      hostStats.defense += player.defense;
-      hostStats.stamina += player.stamina;
+      homeStats.speed += player.speed;
+      homeStats.shootAccuracy += player.shootAccuracy;
+      homeStats.shootPower += player.shootPower;
+      homeStats.defense += player.defense;
+      homeStats.stamina += player.stamina;
 
-      hostValue += calculateValue(player);
+      homeValue += calculateValue(player);
     }
 
+    homeStats.speed /= awayLineup.length;
+    homeStats.shootAccuracy /= awayLineup.length;
+    homeStats.shootPower /= awayLineup.length;
+    homeStats.defense /= awayLineup.length;
+    homeStats.stamina /= awayLineup.length;
+
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    let isHostStyle = ''; // 팀 컬러
-    const hostCountMap = {};
-    for (const item of hostStyle) {
-      hostCountMap[item] = (hostCountMap[item] || 0) + 1;
-      if (hostCountMap[item] >= 2) isHostStyle = item;
+    let isHomeStyle = ''; // 팀 컬러
+    const homeCountMap = {};
+    for (const item of homeStyle) {
+      homeCountMap[item] = (homeCountMap[item] || 0) + 1;
+      if (homeCountMap[item] >= 2) isHomeStyle = item;
     }
 
     // 상대 팀 점수
-    const opponentStyle = [];
-    const opponentStats = {
+    const awayStyle = [];
+    const awayStats = {
       speed: 0,
       shootAccuracy: 0,
       shootPower: 0,
       defense: 0,
       stamina: 0,
     };
-    let opponentValue = 0; // 라인업 가치
-    for (const lineup of opponentLineup) {
+    let awayValue = 0; // 라인업 가치
+    for (const lineup of awayLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
       });
@@ -180,23 +179,29 @@ export async function matchMaking(req, res, next) {
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
-      opponentStyle.push(player.style);
+      awayStyle.push(player.style);
 
-      opponentStats.speed += player.speed;
-      opponentStats.shootAccuracy += player.shootAccuracy;
-      opponentStats.shootPower += player.shootPower;
-      opponentStats.defense += player.defense;
-      opponentStats.stamina += player.stamina;
+      awayStats.speed += player.speed;
+      awayStats.shootAccuracy += player.shootAccuracy;
+      awayStats.shootPower += player.shootPower;
+      awayStats.defense += player.defense;
+      awayStats.stamina += player.stamina;
 
-      opponentValue += calculateValue(player);
+      awayValue += calculateValue(player);
     }
 
+    awayStats.speed /= awayLineup.length;
+    awayStats.shootAccuracy /= awayLineup.length;
+    awayStats.shootPower /= awayLineup.length;
+    awayStats.defense /= awayLineup.length;
+    awayStats.stamina /= awayLineup.length;
+
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 성정
-    let isOpponentStyle = ''; // 팀 컬러
-    const OpponentCountMap = {};
-    for (const item of opponentStyle) {
-      OpponentCountMap[item] = (OpponentCountMap[item] || 0) + 1;
-      if (OpponentCountMap[item] >= 2) isOpponentStyle = item;
+    let isAwayStyle = ''; // 팀 컬러
+    const awayCountMap = {};
+    for (const item of awayStyle) {
+      awayCountMap[item] = (awayCountMap[item] || 0) + 1;
+      if (awayCountMap[item] >= 2) isAwayStyle = item;
     }
 
     // 팀 컬러 상성
@@ -206,98 +211,129 @@ export async function matchMaking(req, res, next) {
       targetMan: 'highPressing',
     };
 
-    // host 상성이 유리하거나 상대가 팀컬러가 없으면
-    if (advantageMap[isHostStyle] == isOpponentStyle || (isHostStyle && !isOpponentStyle)) {
-      hostStats.speed *= 1.1;
-      hostStats.shootAccuracy *= 1.1;
-      hostStats.shootPower *= 1.1;
-      hostStats.defense *= 1.1;
-      hostStats.stamina *= 1.1;
+    // home 상성이 유리하거나 상대가 팀컬러가 없으면
+    if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
+      homeStats.speed *= 1.1;
+      homeStats.shootAccuracy *= 1.1;
+      homeStats.shootPower *= 1.1;
+      homeStats.defense *= 1.1;
+      homeStats.stamina *= 1.1;
     }
-    // opponent 상성이 유리하거나 상대가 팀컬러가 없으면
-    if (advantageMap[isOpponentStyle] == isHostStyle || (!isHostStyle && isOpponentStyle)) {
-      opponentStats.speed *= 1.1;
-      opponentStats.shootAccuracy *= 1.1;
-      opponentStats.shootPower *= 1.1;
-      opponentStats.defense *= 1.1;
-      opponentStats.stamina *= 1.1;
+    // away 상성이 유리하거나 상대가 팀컬러가 없으면
+    if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
+      awayStats.speed *= 1.1;
+      awayStats.shootAccuracy *= 1.1;
+      awayStats.shootPower *= 1.1;
+      awayStats.defense *= 1.1;
+      awayStats.stamina *= 1.1;
     }
+
+    const AVG_PLAYERS = 3;
+    const DEFAULT_RANGE = 30;
 
     let ball = 0;
     const goal = [0, 0];
     for (let i = 0; i < 10; i++) {
-      // host 축구력?
-      let host = hostStats.speed + hostStats.defense + hostStats.stamina;
-      // opponent 축구력?
-      let opponent = opponentStats.speed + opponentStats.defense + opponentStats.stamina;
+      // home 축구력?
+      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS; // 250
+      // away 축구력?
+      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / AVG_PLAYERS; // 200
 
       // 스탯 차이에 따라 공 이동 거리 계산 (양 팀 간 스탯 차이의 비율 사용)
-      const statDifference = host - opponent; //
-      const advantage = statDifference / (host + opponent) / 2; // 스탯 차이 비율
-      const baseMovement = Math.round(advantage * 100); // 기본 이동 거리를 스탯 비율로 설정
+      const advantage = home - away;
 
       // 공 이동 및 이동 거리 (랜덤 요소 추가)
-      const randomFactor = Math.round(Math.random() * 30) - 15; // - 15 ~ 15
-      ball += baseMovement + randomFactor;
+      const randomFactor =
+        Math.round(Math.random() * DEFAULT_RANGE * 2) - // 0 ~ 60
+        DEFAULT_RANGE + // -21 ~ 39
+        DEFAULT_RANGE * (advantage / 100); // 9
+      ball += randomFactor;
 
-      // host 골 찬스
+      // home 골 찬스
       if (ball >= 80) {
-        const goalRate = (hostStats.shootAccuracy + hostStats.shootPower) / 2;
-        // 골 확률
-        if (goalRate > Math.random() * 100) goal[0] += 1;
+        const goalRate = Math.min(homeStats.shootAccuracy + homeStats.shootPower, 100);
+        if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100)
+          // 골 확률
+          // 200
+          goal[0] += 1;
         ball = 0;
       }
 
-      // opponent 골 찬스
+      // away 골 찬스
       if (ball <= -80) {
-        const goalRate = (opponentStats.shootAccuracy + opponentStats.shootPower) / 2;
+        const goalRate = Math.min(awayStats.shootAccuracy + awayStats.shootPower, 100);
         // 골 확률
-        if (goalRate > Math.random() * 100) goal[1] += 1;
+        if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) goal[1] += 1;
         ball = 0;
       }
 
       // 경기 진행도에 따른 스탯 감소
-      hostStats.stamina -= i * 2;
-      if (hostStats.stamina < 150) host *= 0.95;
-      else if (hostStats.stamina < 100) host *= 0.9;
-      else if (hostStats.stamina < 50) host *= 0.8;
-      else host *= 0.7;
+      homeStats.stamina -= i;
+      if (homeStats.stamina < 50) {
+        homeStats.shootAccuracy *= 0.95;
+        homeStats.shootPower *= 0.95;
+        homeStats.speed *= 0.95;
+        homeStats.defense *= 0.95;
+      } else if (homeStats.stamina < 25) {
+        homeStats.shootAccuracy *= 0.9;
+        homeStats.shootPower *= 0.9;
+        homeStats.speed *= 0.9;
+        homeStats.defense *= 0.9;
+      } else if (homeStats.stamina < 10) {
+        homeStats.shootAccuracy *= 0.8;
+        homeStats.shootPower *= 0.8;
+        homeStats.speed *= 0.8;
+        homeStats.defense *= 0.8;
+      }
 
-      opponentStats.stamina -= i * 2;
-      if (opponentStats.stamina < 150) opponent *= 0.95;
-      else if (opponentStats.stamina < 100) opponent *= 0.9;
-      else if (opponentStats.stamina < 50) opponent *= 0.8;
-      else opponent *= 0.7;
+      awayStats.stamina -= i;
+      if (awayStats.stamina < 50) {
+        awayStats.shootAccuracy *= 0.95;
+        awayStats.shootPower *= 0.95;
+        awayStats.speed *= 0.95;
+        awayStats.defense *= 0.95;
+      } else if (awayStats.stamina < 25) {
+        awayStats.shootAccuracy *= 0.9;
+        awayStats.shootPower *= 0.9;
+        awayStats.speed *= 0.9;
+        awayStats.defense *= 0.9;
+      } else if (awayStats.stamina < 10) {
+        awayStats.shootAccuracy *= 0.8;
+        awayStats.shootPower *= 0.8;
+        awayStats.speed *= 0.8;
+        awayStats.defense *= 0.8;
+      }
     }
 
     // 무승부일 경우 승부차기
     if (goal[0] === goal[1]) {
+      penaltyKick(homeLineup, awayLineup);
     }
 
     const game = await prisma.$transaction(async (tx) => {
-      // 경기 결과 등록 
+      // 경기 결과 등록
       // $$ 상대방 game도 등록해줘야 함 $$
       const game = await tx.game.create({
         data: {
-          hostId: accountId,
-          opponentId: opponent.accountId,
+          homeId: accountId,
+          awayId: away.accountId,
           win: isWin,
-          hostScore: result[1],
-          opponentScore: result[2],
+          homeScore: goal[0],
+          awayScore: goal[1],
         },
       });
-      // host 랭크 점수 갱신
-      const updateHostScore = await tx.accounts.update({
+      // home 랭크 점수 갱신
+      const updateHomeScore = await tx.accounts.update({
         where: { accountId: +accountId },
         data: {
-          rankScore: result[0] ? hostAccount.rankScore + 10 : hostAccount.rankScore - 10,
+          rankScore: result[0] ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
         },
       });
-      // opponent 랭크 점수 갱신
-      const updateOpponentScore = await tx.accounts.update({
-        where: { accountId: +opponent.accountId },
+      // away 랭크 점수 갱신
+      const updateAwayScore = await tx.accounts.update({
+        where: { accountId: +away.accountId },
         data: {
-          rankScore: !result[0] ? opponent.rankScore + 10 : opponent.rankScore - 10,
+          rankScore: !result[0] ? away.rankScore + 10 : away.rankScore - 10,
         },
       });
       return game;
@@ -311,5 +347,3 @@ export async function matchMaking(req, res, next) {
     next(error);
   }
 }
-
-
