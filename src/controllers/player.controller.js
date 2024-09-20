@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
 import AccountService from '../services/account.service.js';
-import { PICKUP_TYPE, PICKUP_AMOUNT } from '../enum.js';
+import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../enum.js';
 
 const accountService = new AccountService(prisma);
 
@@ -308,6 +308,63 @@ export async function getPlayers(req, res, next) {
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     res.status(200).json({ data: roster });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 뽑기권 구매 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
+export async function buyToken(req, res, next) {
+  const { accountId } = req.params;
+  const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
+  const authAccountId = +req.account;
+
+  try {
+    const account = await accountService.checkAccount(+accountId, authAccountId);
+
+    // 뽑기권 확인
+    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+
+    // 잔액 확인
+    const cashLog = await prisma.cashLog.findFirst({
+      where: { accountId: +accountId },
+      orderBy: { createAt: 'desc' },
+    });
+    const cashUsage = PICKUP_PRICE[pickupType] * PICKUP_AMOUNT[pickupAmount];
+    if (!cashLog || cashLog.totalCash < cashUsage) throw throwError('캐시 잔액이 부족합니다.', 402);
+
+    const records = Array.from({ length: PICKUP_AMOUNT[pickupAmount] }, () => ({
+      accountId: +accountId,
+      type: pickupType,
+    }));
+
+    await prisma.$transaction(async (tx) => {
+      // 뽑기권 생성
+      await tx.pickupToken.createMany({
+        data: records,
+      });
+
+      // 캐쉬 반영
+      await tx.cashLog.create({
+        data: {
+          accountId: +accountId,
+          totalCash: cashLog.totalCash - cashUsage,
+          purpose: 'token',
+          cashChange: -cashUsage,
+        },
+      });
+    });
+
+    return res.status(201).json({
+      message: `${PICKUP_TYPE[pickupType]} 뽑기권 ${PICKUP_AMOUNT[pickupAmount]}장을 구입했습니다.`,
+    });
   } catch (error) {
     next(error);
   }
