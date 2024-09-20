@@ -53,19 +53,30 @@ export async function chargeCash(req, res, next) {
     next(error); // 에러 핸들링 미들웨어로 넘기기
   }
 }
-//캐쉬 잔액 조회
-  export async function inquireCash(req,res,next) {
-    const accountId = +req.params.accountId;
-   
-    try{
-      const totalCash = await prisma.cashLog.findCash({
-        where:{accountId: accountId},
-        data: {totalCash: totalCash},
-      })
 
-      res.status(200).json({ totalCash });
-    } catch (error){
-      next(error);
-    }
+/**
+ * 캐쉬 잔액 조회 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function inquireCash(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
+
+  try {
+    await accountService.checkAccount(accountId, authAccountId);
+
+    const totalCash = await prisma.cashLog.findFirst({
+      where: { accountId },
+      select: {
+        totalCash: true,
+      },
+      orderBy: { createAt: 'desc' },
+    });
+
+    res.status(200).json({ totalCash });
+  } catch (error) {
+    next(error);
   }
-
+}

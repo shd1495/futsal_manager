@@ -9,8 +9,9 @@ const router = express.Router();
  */
 router.post('/cash/:accountId', authMiddleware, chargeCash);
 
-//조회
-router.get('/totalcash/:accountId',inquireCash);
-
+/**
+ * 캐쉬 잔액 조회 API
+ */
+router.get('/cash/:accountId', authMiddleware, inquireCash);
 
 export default router;
