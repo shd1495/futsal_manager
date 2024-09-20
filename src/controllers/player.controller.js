@@ -15,9 +15,9 @@ const accountService = new AccountService(prisma);
  * @returns
  */
 export async function createLineup(req, res, next) {
-  const accountId = req.params.accountId;
-  const rosterIds = req.body.rosterIds;
-  const authAccountId = req.account.authAccountId;
+  const accountId = +req.params.accountId;
+  const rosterIds = +req.body.rosterIds;
+  const authAccountId = +req.account;
 
   try {
     // 계정 존재 여부
@@ -119,7 +119,7 @@ export async function createLineup(req, res, next) {
  */
 export async function pickupPlayer(req, res, next) {
   const accountId = +req.params.accountId;
-  const authAccountId = +req.account.accountId;
+  const authAccountId = +req.account;
   const pickupType = +req.body.type; // 뽑기권 종류
   const pickupAmount = +req.body.amount; // 뽑는 횟수
 
@@ -137,8 +137,8 @@ export async function pickupPlayer(req, res, next) {
     //   throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 뽑기권 확인
-    if (!pickupType in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
-    if (!pickupAmount in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     const pickupTokens = await prisma.pickupToken.findMany({
       where: { accountId: accountId, type: pickupType },
@@ -149,7 +149,7 @@ export async function pickupPlayer(req, res, next) {
     if (pickupTokens.length < pickupAmount) throw throwError('뽑기권이 부족합니다.', 400);
 
     const poolSize = 0;
-    switch(pickupType) {
+    switch (pickupType) {
       case PICKUP_TYPE.ALL:
         poolSize = await prisma.players.findMany({
           select: { playerId },
@@ -228,7 +228,7 @@ export async function pickupPlayer(req, res, next) {
 export async function sellPlayer(req, res, next) {
   const accountId = +req.params.accountId;
   const rosterId = +req.body.rosterId;
-  const authAccountId = +req.account.accountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정
@@ -293,7 +293,7 @@ export async function sellPlayer(req, res, next) {
  */
 export async function getPlayers(req, res, next) {
   const accountId = +req.params.accountId;
-  const authAccountId = +req.account.accountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정
