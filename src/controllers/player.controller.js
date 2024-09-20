@@ -1,11 +1,9 @@
 import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
-import { calculateValue, calculatePickupRate } from '../utils/importPlayers.js';
-import AccountService from '../services/account.service.js';
-import { PICKUP_TYPE, PICKUP_AMOUNT } from '../enum.js';
-
-const accountService = new AccountService(prisma);
+import accountService from '../services/account.service.js';
+import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../utils/enum.js';
+import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
 
 /**
  * 팀 편성 로직
@@ -21,7 +19,7 @@ export async function createLineup(req, res, next) {
 
   try {
     // 계정 존재 여부
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
@@ -119,13 +117,12 @@ export async function createLineup(req, res, next) {
  */
 export async function pickupPlayer(req, res, next) {
   const accountId = +req.params.accountId;
+  const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
   const authAccountId = +req.account;
-  const pickupType = +req.body.type; // 뽑기권 종류
-  const pickupAmount = +req.body.amount; // 뽑는 횟수
 
   try {
     // 계정 인증+인가
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 이거 캐시 구현할때 그대로 쓰셔도 될듯합니다
     // // 잔액 확인
@@ -137,22 +134,25 @@ export async function pickupPlayer(req, res, next) {
     //   throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 뽑기권 확인
-    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
-    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+    if (!(pickupType in PICKUP_TYPE)) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     const pickupTokens = await prisma.pickupToken.findMany({
-      where: { accountId: accountId, type: pickupType },
+      where: { accountId: accountId, type: PICKUP_TYPE[pickupType] },
       select: {
         pickupTokenId: true,
       },
     });
-    if (pickupTokens.length < pickupAmount) throw throwError('뽑기권이 부족합니다.', 400);
+    if (pickupTokens.length < PICKUP_AMOUNT[pickupAmount])
+      throw throwError('뽑기권이 부족합니다.', 400);
 
-    const poolSize = 0;
-    switch (pickupType) {
+    let poolSize = 0;
+    switch (PICKUP_TYPE[pickupType]) {
       case PICKUP_TYPE.ALL:
         poolSize = await prisma.players.findMany({
-          select: { playerId },
+          select: {
+            playerId: true,
+          },
         }).length;
         break;
       case PICKUP_TYPE.TOP_500:
@@ -166,46 +166,64 @@ export async function pickupPlayer(req, res, next) {
     }
 
     // 모든 선수 픽업확률 조회
-    const playerList = prisma.players.findMany({
-      select: {
-        playerId: true,
-        pickupRate: true,
-      },
-      take: { poolSize },
+    const playerList = await prisma.players.findMany({
+      take: poolSize,
     });
 
-    await prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx) => {
         let result = [];
 
         // 뽑기권 변동 내역
         await tx.pickupTokenLog.create({
           data: {
-            type: pickupType,
-            purpose: `pickup ${pickupAmount} times`,
-            amount: pickupAmount,
+            accountId: +accountId,
+            type: PICKUP_TYPE[pickupType],
+            purpose: `pickup ${PICKUP_AMOUNT[pickupAmount]} times`,
+            amount: PICKUP_AMOUNT[pickupAmount],
           },
         });
 
-        for (let i = 0; i < numPulls; i++) {
-          // 뽑기
-          let random = Math.random() * 1e8;
+        for (let i = 0; i < PICKUP_AMOUNT[pickupAmount]; i++) {
           let rateSum = 0;
           let pickup = null;
-          playerList.forEach((player) => {
-            rateSum += calculatePickupRate(calculateValue(player)); // 수정 필요
-            if (pickup === null && rateSum >= random) pickup = player;
-          });
+          // 뽑기
+          if (PICKUP_TYPE[pickupType] == 'top_100') {
+            let random = Math.random() * 1e5; // 0 ~ 100000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          } else if (PICKUP_TYPE[pickupType] == 'top_500') {
+            let random = Math.random() * (5 * 1e5); // 0 ~ 500000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          } else {
+            let random = Math.random() * (1e7 + 1e6 + 60); // 0 ~ 10000000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          }
+
+          // 혹시 안뽑히면
+          if (!pickup) {
+            i--;
+            continue;
+          }
 
           // 뽑은 선수 보유목록에 추가
           await tx.roster.create({
             data: {
-              accountId: accountId,
+              accountId: +accountId,
               playerId: pickup.playerId,
             },
           });
-          result.push(player);
+          result.push(pickup.playerName);
         }
+        return result;
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -232,30 +250,30 @@ export async function sellPlayer(req, res, next) {
 
   try {
     // 계정
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
-      where: { accountId, rosterId },
+      where: { accountId: accountId, rosterId: rosterId },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     // 가장 최근 캐쉬 변동 내역
     const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId },
+      where: { accountId: accountId },
       orderBy: { createAt: 'desc' },
     });
     if (!cashLog) throw throwError('캐시 기록이 존재하지 않습니다.', 404);
 
     // 라인업에 존재하면
     const lineup = await prisma.lineup.findMany({
-      where: { accountId },
+      where: { accountId: accountId },
     });
     if (lineup) throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
     // 선수 정보
     const player = await prisma.players.findFirst({
-      where: { playerId: +roster.playerId },
+      where: { playerId: roster.playerId },
     });
     if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
 
@@ -264,7 +282,7 @@ export async function sellPlayer(req, res, next) {
       const result = await tx.cashLog.create({
         data: {
           accountId: accountId,
-          totalCash: cashLog.totalCash + +player.price,
+          totalCash: cashLog.totalCash + player.price,
           purpose: 'sell',
           cashChange: player.price,
         },
@@ -297,11 +315,11 @@ export async function getPlayers(req, res, next) {
 
   try {
     // 계정
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 보유 선수 목록 조회
     const roster = prisma.roster.findMany({
-      where: { accountId: accountId },
+      where: { accountId },
       select: {
         playerId: true,
         rank: true,
@@ -310,6 +328,63 @@ export async function getPlayers(req, res, next) {
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     res.status(200).json({ data: roster });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 뽑기권 구매 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
+export async function buyToken(req, res, next) {
+  const accountId = +req.params.accountId;
+  const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
+  const authAccountId = +req.account;
+
+  try {
+    const account = await accountService.checkAccount(accountId, authAccountId);
+
+    // 뽑기권 확인
+    if (!(pickupType in PICKUP_TYPE)) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+
+    // 잔액 확인
+    const cashLog = await prisma.cashLog.findFirst({
+      where: { accountId: accountId },
+      orderBy: { createAt: 'desc' },
+    });
+    const cashUsage = PICKUP_PRICE[pickupType] * PICKUP_AMOUNT[pickupAmount];
+    if (!cashLog || cashLog.totalCash < cashUsage) throw throwError('캐시 잔액이 부족합니다.', 402);
+
+    const records = Array.from({ length: PICKUP_AMOUNT[pickupAmount] }, () => ({
+      accountId: accountId,
+      type: pickupType,
+    }));
+
+    await prisma.$transaction(async (tx) => {
+      // 뽑기권 생성
+      await tx.pickupToken.createMany({
+        data: records,
+      });
+
+      // 캐쉬 반영
+      await tx.cashLog.create({
+        data: {
+          accountId: accountId,
+          totalCash: cashLog.totalCash - cashUsage,
+          purpose: 'token',
+          cashChange: -cashUsage,
+        },
+      });
+    });
+
+    return res.status(201).json({
+      message: `${PICKUP_TYPE[pickupType]} 뽑기권 ${PICKUP_AMOUNT[pickupAmount]}장을 구입했습니다.`,
+    });
   } catch (error) {
     next(error);
   }

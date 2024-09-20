@@ -1,10 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import { calculateValue } from '../utils/valuation.js';
-import AccountService from '../services/account.service.js';
-import calculateValue from '../utils/updatePlayers.js';
-
-const accountService = new AccountService(prisma);
+import accountService from '../services/account.service.js';
 
 async function penaltyKick(homeLineup, awayLineup) {
   // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
@@ -71,16 +67,16 @@ function performKick(attacker, defender) {
  * @returns
  */
 export async function matchMaking(req, res, next) {
-  const { accountId } = req.params;
-  const { authAccountId } = req.account;
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정 검증
-    const homeAccount = await accountService.checkAccount(prisma, +accountId, +authAccountId);
+    const homeAccount = await accountService.checkAccount(accountId, authAccountId);
 
     // 내 팀 라인업
     const homeLineup = await prisma.lineup.findMany({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
     });
     if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
 
@@ -89,8 +85,8 @@ export async function matchMaking(req, res, next) {
     const awayPool = await prisma.accounts.findMany({
       where: {
         rankScore: {
-          gte: hostAccount.rankScore + 50, // 최대 + 50
-          lte: hostAccount.rankScore - 50, // 최소 - 50
+          gte: homeAccount.rankScore + 50, // 최대 + 50
+          lte: homeAccount.rankScore - 50, // 최소 - 50
         },
       },
     });
@@ -104,7 +100,7 @@ export async function matchMaking(req, res, next) {
       away = awayPool[Math.floor(Math.random() * awayPool.length)];
 
       awayLineup = await prisma.lineup.findMany({
-        where: { accountId: +away.accountId },
+        where: { accountId: away.accountId },
       });
       cnt++;
       if (cnt >= 100) {
@@ -123,12 +119,12 @@ export async function matchMaking(req, res, next) {
     };
     for (const lineup of homeLineup) {
       const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineup.rosterId },
+        where: { rosterId: lineup.rosterId },
       });
       if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 
       const player = await prisma.players.findUnique({
-        where: { playerId: +roster.playerId },
+        where: { playerId: roster.playerId },
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
@@ -166,12 +162,12 @@ export async function matchMaking(req, res, next) {
     };
     for (const lineup of awayLineup) {
       const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineup.rosterId },
+        where: { rosterId: lineup.rosterId },
       });
       if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
 
       const player = await prisma.players.findUnique({
-        where: { playerId: +roster.playerId },
+        where: { playerId: roster.playerId },
       });
       if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
 
@@ -333,14 +329,14 @@ export async function matchMaking(req, res, next) {
       });
       // home 랭크 점수 갱신
       const updateHomeScore = await tx.accounts.update({
-        where: { accountId: +accountId },
+        where: { accountId: accountId },
         data: {
           rankScore: result[0] ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
         },
       });
       // away 랭크 점수 갱신
       const updateAwayScore = await tx.accounts.update({
-        where: { accountId: +away.accountId },
+        where: { accountId: away.accountId },
         data: {
           rankScore: !result[0] ? away.rankScore + 10 : away.rankScore - 10,
         },

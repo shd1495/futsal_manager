@@ -1,8 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import AccountService from '../services/account.service.js';
-
-const accountService = new AccountService(prisma);
+import accountService from '../services/account.service.js';
 
 /**
  * 캐쉬 충전 로직
@@ -18,7 +16,7 @@ export async function chargeCash(req, res, next) {
 
   try {
     // 계정 존재 여부 및 권한 확인
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(+accountId, authAccountId);
 
     // 충전 금액이 유효한지 확인 (0 이상이어야 함)
     if (amount <= 0) throw throwError('충전 금액은 0보다 커야 합니다.', 400);

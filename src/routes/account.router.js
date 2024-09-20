@@ -10,9 +10,9 @@ import {
 const router = express.Router();
 
 //회원가입
-router.post('/sign/:accountId', signAccount);
+router.post('/sign', signAccount);
 //로그인
-router.post('/login/:accountId', loginAccount);
+router.post('/login', loginAccount);
 //계정 삭제
 router.delete(`/delete/:accountId`, authMiddleware, deleteAccount);
 //계정 조회

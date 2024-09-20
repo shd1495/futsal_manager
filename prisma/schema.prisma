@@ -18,7 +18,7 @@ model accounts {
   id String @unique @db.Char(16)
   password String @db.Char(16)
   name String @db.Char(4)
-  rankScore Int
+  rankScore Int @default(1000)
 
   roster roster[]
   lineup lineup[]
