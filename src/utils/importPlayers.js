@@ -20,7 +20,7 @@ function getRandomStyle() {
 }
 
 
-function calculateValue(player) {
+export function calculateValue(player) {
   const { speed, shootAccuracy, shootPower, defense, stamina } = player;
   const sum = speed + shootAccuracy + shootPower + defense + stamina;
 
