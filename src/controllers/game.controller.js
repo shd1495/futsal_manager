@@ -1,8 +1,73 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
+import { calculateValue } from '../utils/valuation.js';
 import AccountService from '../services/account.service.js';
 
 const accountService = new AccountService(prisma);
+
+async function penaltyKick(hostLineup, opponentLineup) {
+  
+  // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
+  let hostDefender = hostLineup[0]; // 첫 번째 선수를 기본으로 설정
+  for (let i = 1; i < hostLineup.length; i++) {
+    if (hostLineup[i].defense > hostDefender.defense) {
+      hostDefender = hostLineup[i];
+    }
+  }
+
+  // 상대 팀에서 defense 값이 가장 높은 선수 찾기
+  let opponentDefender = opponentLineup[0]; // 첫 번째 선수를 기본으로 설정
+  for (let i = 1; i < opponentLineup.length; i++) {
+    if (opponentLineup[i].defense > opponentDefender.defense) {
+      opponentDefender = opponentLineup[i];
+    }
+  }
+
+  // 승부차기 로직
+  let hostPenaltyScore = 0;
+  let opponentPenaltyScore = 0;
+  let round = 1;
+
+  while (round <= 3 || hostPenaltyScore === opponentPenaltyScore) {
+    // 공격자는 라인업 순서대로 돌아가며 슛을 함
+    const hostAttacker = hostLineup[(round - 1) % hostLineup.length];
+    const opponentAttacker = opponentLineup[(round - 1) % opponentLineup.length];
+
+    // 호스트 팀의 공격: 호스트 공격자 vs 상대 수비자
+    if (performkick(hostAttacker, opponentDefender)) {
+      hostPenaltyScore++;
+    }
+
+    // 상대 팀의 공격: 상대 공격자 vs 호스트 수비자
+    if (performKick(opponentAttacker, hostDefender)) {
+      opponentPenaltyScore++;
+    } 
+
+    // 승부가 나면 종료, 3라운드 후에도 같으면 계속 반복
+    if (round >= 3 && hostPenaltyScore !== opponentPenaltyScore) {
+      break;
+    }
+
+    round++;
+  }
+
+  // 결과 반환
+  if (hostPenaltyScore > opponentPenaltyScore) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// 킥 수행 로직: 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
+function performKick(attacker, defender) {
+  const attackScore = attacker.shootAccuracy + attacker.shootPower;
+  const randomAttack = Math.random() * attackScore;
+  const randomDefense = Math.random() * defender.defense;
+
+  return randomAttack > randomDefense;
+}
+
 
 /**
  * 매치메이킹 로직
@@ -26,6 +91,7 @@ export async function matchMaking(req, res, next) {
     if (hostLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
 
     // 상대 목록
+    // 여기서 lineup.length === 3인 애들만 필터링
     const opponentPool = await prisma.accounts.findMany({
       where: {
         rankScore: {
@@ -51,70 +117,22 @@ export async function matchMaking(req, res, next) {
         throw throwError('상대방을 찾을 수 없습니다.', 404);
       }
     }
+    // 페이즈 10 게임
 
-    // 내 팀 점수
-    let hostScore = 0;
-    for (const lineup of hostLineup) {
-      const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineup.rosterId },
-      });
-      if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
-
-      const player = await prisma.players.findUnique({
-        where: { playerId: +roster.playerId },
-      });
-      if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
-
-      hostScore += player.speed * 0.3;
-      hostScore += player.shootAccuracy * 0.3;
-      hostScore += player.shootPower * 0.25;
-      hostScore += player.defense * 0.05;
-      hostScore += player.stamina * 0.1;
-    }
-
-    // 상대 팀 점수
-    let opponentScore = 0;
-    for (const lineup of opponentLineup) {
-      const roster = await prisma.roster.findUnique({
-        where: { rosterId: +lineup.rosterId },
-      });
-      if (!roster) throw throwError('로스터를 찾을 수 없습니다.', 404);
-
-      const player = await prisma.players.findUnique({
-        where: { playerId: +roster.playerId },
-      });
-      if (!player) throw throwError('선수를 찾을 수 없습니다', 404);
-
-      opponentScore += player.speed * 0.3;
-      opponentScore += player.shootAccuracy * 0.3;
-      opponentScore += player.shootPower * 0.25;
-      opponentScore += player.defense * 0.05;
-      opponentScore += player.stamina * 0.1;
-    }
-
-    // 경기 로직
-    const maxScore = hostScore + opponentScore; //host 300, opponentScore 237.1 537.1
-    const randomValue = Math.random() * maxScore;
-    let result = [];
-    if (randomValue < hostScore) {
-      // host 승리 처리
-      const hostScore = Math.floor(Math.random() * 4) + 1; // 1에서 4 사이
-      const opponentScore = Math.floor(Math.random() * Math.min(2, hostScore)); // aScore보다 작은 값을 설정
-      result = [true, hostScore, opponentScore];
-    } else {
-      // opponent 승리 처리
-      const opponentScore = Math.floor(Math.random() * 4) + 1; // 1에서 4 사이
-      const hostScore = Math.floor(Math.random() * Math.min(2, opponentScore)); // bScore보다 작은 값을 설정
-      result = [false, hostScore, opponentScore];
+    // 이후 무승부라면
+    let isWin;
+    if (hostScore === opponentScore) {
+      isWin = await penaltyKick(hostLineup, opponentLineup);
     }
 
     const game = await prisma.$transaction(async (tx) => {
-      // 경기 결과 등록
+      // 경기 결과 등록 
+      // $$ 상대방 game도 등록해줘야 함 $$
       const game = await tx.game.create({
         data: {
           hostId: accountId,
           opponentId: opponent.accountId,
-          win: result[0],
+          win: isWin,
           hostScore: result[1],
           opponentScore: result[2],
         },
@@ -144,3 +162,5 @@ export async function matchMaking(req, res, next) {
     next(error);
   }
 }
+
+
