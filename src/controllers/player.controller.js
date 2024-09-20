@@ -159,7 +159,7 @@ export async function pickupPlayer(req, res, next) {
         poolSize = 500;
         break;
       case PICKUP_TYPE.TOP_100:
-        poolsize = 100;
+        poolSize = 100;
         break;
       default:
         break;
@@ -193,7 +193,7 @@ export async function pickupPlayer(req, res, next) {
           let rateSum = 0;
           let pickup = null;
           playerList.forEach((player) => {
-            sum += calculatePickupRate(calculateValue(player)); // 수정 필요
+            rateSum += calculatePickupRate(calculateValue(player)); // 수정 필요
             if (pickup === null && rateSum >= random) pickup = player;
           });
 
