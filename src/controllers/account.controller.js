@@ -3,9 +3,7 @@ import { throwError } from '../utils/error.handle.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import Joi from 'joi';
-import AccountService from '../services/account.service.js';
-
-const accountService = new AccountService(prisma);
+import accountService from '../services/account.service.js';
 
 //회원 가입
 export async function signAccount(req, res, next) {
@@ -68,14 +66,14 @@ export async function loginAccount(req, res, next) {
 }
 // 아이디 삭제
 export async function deleteAccount(req, res, next) {
-  const { accountId } = req.params;
-  const authAccountId = req.account;
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
 
   try {
-    await accountService.checkAccount(+accountId, +authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     await prisma.accounts.delete({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
     });
 
     return res.status(200).json({ message: `아이디가 삭제 되었습니다.` });
@@ -85,11 +83,12 @@ export async function deleteAccount(req, res, next) {
 }
 //계정 정보 조회
 export async function inquireAccount(req, res, next) {
-  const { accountId } = req.params;
-  const authAccountId = req.account;
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
 
+  console.log(accountId);
   try {
-    const account = await accountService.checkAccount(+accountId, +authAccountId);
+    const account = await accountService.checkAccount(accountId, authAccountId);
 
     const accountInfo = { name: account.name, rankScore: account.rankScore };
 

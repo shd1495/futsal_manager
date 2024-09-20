@@ -1,11 +1,9 @@
 import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
-import AccountService from '../services/account.service.js';
+import accountService from '../services/account.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../enum.js';
 import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
-
-const accountService = new AccountService(prisma);
 
 /**
  * 팀 편성 로직
@@ -15,13 +13,13 @@ const accountService = new AccountService(prisma);
  * @returns
  */
 export async function createLineup(req, res, next) {
-  const { accountId } = req.params;
-  const { rosterIds } = req.body;
+  const accountId = +req.params.accountId;
+  const rosterIds = +req.body.rosterIds;
   const authAccountId = +req.account;
 
   try {
     // 계정 존재 여부
-    await accountService.checkAccount(+accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
@@ -118,13 +116,13 @@ export async function createLineup(req, res, next) {
  * @returns
  */
 export async function pickupPlayer(req, res, next) {
-  const { accountId } = req.params;
+  const accountId = +req.params.accountId;
   const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
   const authAccountId = +req.account;
 
   try {
     // 계정 인증+인가
-    await accountService.checkAccount(+accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 이거 캐시 구현할때 그대로 쓰셔도 될듯합니다
     // // 잔액 확인
@@ -140,7 +138,7 @@ export async function pickupPlayer(req, res, next) {
     if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     const pickupTokens = await prisma.pickupToken.findMany({
-      where: { accountId: +accountId, type: PICKUP_TYPE[pickupType] },
+      where: { accountId: accountId, type: PICKUP_TYPE[pickupType] },
       select: {
         pickupTokenId: true,
       },
@@ -187,14 +185,34 @@ export async function pickupPlayer(req, res, next) {
         });
 
         for (let i = 0; i < PICKUP_AMOUNT[pickupAmount]; i++) {
-          // 뽑기
-          let random = Math.random() * 1e7; // 0 ~ 10000000
           let rateSum = 0;
           let pickup = null;
-          playerList.forEach((player) => {
-            rateSum += calculatePickupRate(calculateValue(player)); // 수정 필요
-            if (pickup === null && rateSum >= random) pickup = player;
-          });
+          // 뽑기
+          if (PICKUP_TYPE[pickupType] == 'top_100') {
+            let random = Math.random() * 1e5; // 0 ~ 100000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          } else if (PICKUP_TYPE[pickupType] == 'top_500') {
+            let random = Math.random() * (5 * 1e5); // 0 ~ 500000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          } else {
+            let random = Math.random() * (1e7 + 1e6 + 60); // 0 ~ 10000000
+            playerList.forEach((player) => {
+              rateSum += calculatePickupRate(calculateValue(player));
+              if (pickup === null && rateSum >= random) pickup = player;
+            });
+          }
+
+          // 혹시 안뽑히면
+          if (!pickup) {
+            i--;
+            continue;
+          }
 
           // 뽑은 선수 보유목록에 추가
           await tx.roster.create({
@@ -226,8 +244,8 @@ export async function pickupPlayer(req, res, next) {
  * @returns
  */
 export async function sellPlayer(req, res, next) {
-  const { accountId } = req.params;
-  const { rosterId } = req.body;
+  const accountId = +req.params.accountId;
+  const rosterId = +req.body.rosterId;
   const authAccountId = +req.account;
 
   try {
@@ -236,26 +254,26 @@ export async function sellPlayer(req, res, next) {
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
-      where: { accountId: +accountId, rosterId: +rosterId },
+      where: { accountId: accountId, rosterId: rosterId },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     // 가장 최근 캐쉬 변동 내역
     const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
       orderBy: { createAt: 'desc' },
     });
     if (!cashLog) throw throwError('캐시 기록이 존재하지 않습니다.', 404);
 
     // 라인업에 존재하면
     const lineup = await prisma.lineup.findMany({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
     });
     if (lineup) throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
     // 선수 정보
     const player = await prisma.players.findFirst({
-      where: { playerId: +roster.playerId },
+      where: { playerId: roster.playerId },
     });
     if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
 
@@ -263,16 +281,16 @@ export async function sellPlayer(req, res, next) {
       // 캐쉬 변동 내역
       const result = await tx.cashLog.create({
         data: {
-          accountId: +accountId,
-          totalCash: cashLog.totalCash + +player.price,
+          accountId: accountId,
+          totalCash: cashLog.totalCash + player.price,
           purpose: 'sell',
-          cashChange: +player.price,
+          cashChange: player.price,
         },
       });
 
       // 선수 판매
       await tx.roster.delete({
-        where: { rosterId: +rosterId, accountId: +accountId },
+        where: { rosterId: rosterId, accountId: accountId },
       });
       return result;
     });
@@ -292,16 +310,16 @@ export async function sellPlayer(req, res, next) {
  * @param {*} next
  */
 export async function getPlayers(req, res, next) {
-  const { accountId } = req.params;
+  const accountId = +req.params.accountId;
   const authAccountId = +req.account;
 
   try {
     // 계정
-    await accountService.checkAccount(+accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 보유 선수 목록 조회
     const roster = prisma.roster.findMany({
-      where: { accountId: +accountId },
+      where: { accountId },
       select: {
         playerId: true,
         rank: true,
@@ -323,27 +341,27 @@ export async function getPlayers(req, res, next) {
  * @returns
  */
 export async function buyToken(req, res, next) {
-  const { accountId } = req.params;
+  const accountId = +req.params.accountId;
   const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
   const authAccountId = +req.account;
 
   try {
-    const account = await accountService.checkAccount(+accountId, authAccountId);
+    const account = await accountService.checkAccount(accountId, authAccountId);
 
     // 뽑기권 확인
-    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
-    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+    if (!(pickupType in PICKUP_TYPE)) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     // 잔액 확인
     const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
       orderBy: { createAt: 'desc' },
     });
     const cashUsage = PICKUP_PRICE[pickupType] * PICKUP_AMOUNT[pickupAmount];
     if (!cashLog || cashLog.totalCash < cashUsage) throw throwError('캐시 잔액이 부족합니다.', 402);
 
     const records = Array.from({ length: PICKUP_AMOUNT[pickupAmount] }, () => ({
-      accountId: +accountId,
+      accountId: accountId,
       type: pickupType,
     }));
 
@@ -356,7 +374,7 @@ export async function buyToken(req, res, next) {
       // 캐쉬 반영
       await tx.cashLog.create({
         data: {
-          accountId: +accountId,
+          accountId: accountId,
           totalCash: cashLog.totalCash - cashUsage,
           purpose: 'token',
           cashChange: -cashUsage,

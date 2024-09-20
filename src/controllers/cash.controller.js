@@ -1,8 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import AccountService from '../services/account.service.js';
-
-const accountService = new AccountService(prisma);
+import accountService from '../services/account.service.js';
 
 /**
  * 캐쉬 충전 로직
@@ -12,8 +10,8 @@ const accountService = new AccountService(prisma);
  * @returns
  */
 export async function chargeCash(req, res, next) {
-  const { accountId } = req.params;
-  const { amount } = req.body;
+  const accountId = +req.params.accountId;
+  const amount = +req.body.amount;
   const authAccountId = +req.account;
 
   try {
@@ -21,11 +19,11 @@ export async function chargeCash(req, res, next) {
     await accountService.checkAccount(+accountId, authAccountId);
 
     // 충전 금액이 유효한지 확인 (0 이상이어야 함)
-    if (+amount <= 0) throw throwError('충전 금액은 0보다 커야 합니다.', 400);
+    if (amount <= 0) throw throwError('충전 금액은 0보다 커야 합니다.', 400);
 
     // 가장 최근 캐쉬 변동 내역 조회 (이전 총 캐쉬를 확인하기 위함)
     const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: +accountId },
+      where: { accountId: accountId },
       orderBy: { createAt: 'desc' },
     });
 
@@ -33,15 +31,15 @@ export async function chargeCash(req, res, next) {
     const currentCash = cashLog ? cashLog.totalCash : 0;
 
     // 충전 후 총 캐쉬 계산
-    const updatedCash = currentCash + +amount;
+    const updatedCash = currentCash + amount;
 
     // 캐쉬 충전 로그 기록 (계정 테이블은 업데이트하지 않음)
     const result = await prisma.cashLog.create({
       data: {
-        accountId: +accountId,
+        accountId: accountId,
         totalCash: updatedCash,
         purpose: 'charge',
-        cashChange: +amount,
+        cashChange: amount,
       },
     });
 
