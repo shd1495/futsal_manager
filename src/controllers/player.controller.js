@@ -1,7 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
-import { calculateValue, calculatePickupRate } from '../utils/importPlayers.js';
 import AccountService from '../services/account.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT } from '../enum.js';
 
@@ -15,13 +14,13 @@ const accountService = new AccountService(prisma);
  * @returns
  */
 export async function createLineup(req, res, next) {
-  const accountId = +req.params.accountId;
-  const rosterIds = +req.body.rosterIds;
+  const { accountId } = req.params;
+  const { rosterIds } = req.body;
   const authAccountId = +req.account;
 
   try {
     // 계정 존재 여부
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(+accountId, authAccountId);
 
     // 선수 보유 여부
     const roster = await prisma.roster.findMany({
@@ -118,14 +117,13 @@ export async function createLineup(req, res, next) {
  * @returns
  */
 export async function pickupPlayer(req, res, next) {
-  const accountId = +req.params.accountId;
+  const { accountId } = req.params;
+  const { pickupType, pickupAmount } = req.body; // 뽑기권 종류, 뽑는 횟수
   const authAccountId = +req.account;
-  const pickupType = +req.body.type; // 뽑기권 종류
-  const pickupAmount = +req.body.amount; // 뽑는 횟수
 
   try {
     // 계정 인증+인가
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(+accountId, authAccountId);
 
     // 이거 캐시 구현할때 그대로 쓰셔도 될듯합니다
     // // 잔액 확인
@@ -226,30 +224,30 @@ export async function pickupPlayer(req, res, next) {
  * @returns
  */
 export async function sellPlayer(req, res, next) {
-  const accountId = +req.params.accountId;
-  const rosterId = +req.body.rosterId;
+  const { accountId } = req.params;
+  const { rosterId } = req.body;
   const authAccountId = +req.account;
 
   try {
     // 계정
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
-      where: { accountId, rosterId },
+      where: { accountId: +accountId, rosterId: +rosterId },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
     // 가장 최근 캐쉬 변동 내역
     const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId },
+      where: { accountId: +accountId },
       orderBy: { createAt: 'desc' },
     });
     if (!cashLog) throw throwError('캐시 기록이 존재하지 않습니다.', 404);
 
     // 라인업에 존재하면
     const lineup = await prisma.lineup.findMany({
-      where: { accountId },
+      where: { accountId: +accountId },
     });
     if (lineup) throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
@@ -263,16 +261,16 @@ export async function sellPlayer(req, res, next) {
       // 캐쉬 변동 내역
       const result = await tx.cashLog.create({
         data: {
-          accountId: accountId,
+          accountId: +accountId,
           totalCash: cashLog.totalCash + +player.price,
           purpose: 'sell',
-          cashChange: player.price,
+          cashChange: +player.price,
         },
       });
 
       // 선수 판매
       await tx.roster.delete({
-        where: { rosterId: rosterId, accountId: accountId },
+        where: { rosterId: +rosterId, accountId: +accountId },
       });
       return result;
     });
@@ -292,16 +290,16 @@ export async function sellPlayer(req, res, next) {
  * @param {*} next
  */
 export async function getPlayers(req, res, next) {
-  const accountId = +req.params.accountId;
+  const { accountId } = req.params;
   const authAccountId = +req.account;
 
   try {
     // 계정
-    await accountService.checkAccount(prisma, accountId, authAccountId);
+    await accountService.checkAccount(+accountId, authAccountId);
 
     // 보유 선수 목록 조회
     const roster = prisma.roster.findMany({
-      where: { accountId: accountId },
+      where: { accountId: +accountId },
       select: {
         playerId: true,
         rank: true,

@@ -1,8 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
-import { calculateValue } from '../utils/valuation.js';
 import AccountService from '../services/account.service.js';
-import calculateValue from '../utils/updatePlayers.js';
 
 const accountService = new AccountService(prisma);
 
@@ -72,11 +70,11 @@ function performKick(attacker, defender) {
  */
 export async function matchMaking(req, res, next) {
   const { accountId } = req.params;
-  const { authAccountId } = req.account;
+  const authAccountId = +req.account;
 
   try {
     // 계정 검증
-    const homeAccount = await accountService.checkAccount(prisma, +accountId, +authAccountId);
+    const homeAccount = await accountService.checkAccount(+accountId, authAccountId);
 
     // 내 팀 라인업
     const homeLineup = await prisma.lineup.findMany({
@@ -89,8 +87,8 @@ export async function matchMaking(req, res, next) {
     const awayPool = await prisma.accounts.findMany({
       where: {
         rankScore: {
-          gte: hostAccount.rankScore + 50, // 최대 + 50
-          lte: hostAccount.rankScore - 50, // 최소 - 50
+          gte: homeAccount.rankScore + 50, // 최대 + 50
+          lte: homeAccount.rankScore - 50, // 최소 - 50
         },
       },
     });
