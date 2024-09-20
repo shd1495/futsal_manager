@@ -12,9 +12,9 @@ const accountService = new AccountService(prisma);
  * @returns
  */
 export async function chargeCash(req, res, next) {
-  const accountId = req.params.accountId;
-  const { amount } = req.body;
-  const authAccountId = req.account.authAccountId;
+  const accountId = +req.params.accountId;
+  const amount = +req.body.amount;
+  const authAccountId = +req.account;
 
   try {
     // 계정 존재 여부 및 권한 확인

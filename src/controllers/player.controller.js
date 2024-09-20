@@ -1,11 +1,11 @@
 import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
+import { calculateValue, calculatePickupRate } from '../utils/importPlayers.js';
 import AccountService from '../services/account.service.js';
+import { PICKUP_TYPE, PICKUP_AMOUNT } from '../enum.js';
 
 const accountService = new AccountService(prisma);
-
-const PICKUP_PRICE = 2000;
 
 /**
  * 팀 편성 로직
@@ -17,7 +17,7 @@ const PICKUP_PRICE = 2000;
 export async function createLineup(req, res, next) {
   const accountId = +req.params.accountId;
   const rosterIds = +req.body.rosterIds;
-  const authAccountId = +req.account.authAccountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정 존재 여부
@@ -119,51 +119,81 @@ export async function createLineup(req, res, next) {
  */
 export async function pickupPlayer(req, res, next) {
   const accountId = +req.params.accountId;
-  const rosterId = +req.body.rosterId;
-  const authAccountId = +req.account.accountId;
-  const numPulls = +req.body.count; // 뽑기 횟수
+  const authAccountId = +req.account;
+  const pickupType = +req.body.type; // 뽑기권 종류
+  const pickupAmount = +req.body.amount; // 뽑는 횟수
 
   try {
     // 계정 인증+인가
     await accountService.checkAccount(prisma, accountId, authAccountId);
 
-    // 잔액 확인
-    const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId },
-      orderBy: { createAt: 'desc' },
+    // 이거 캐시 구현할때 그대로 쓰셔도 될듯합니다
+    // // 잔액 확인
+    // const cashLog = await prisma.cashLog.findFirst({
+    //   where: { accountId },
+    //   orderBy: { createAt: 'desc' },
+    // });
+    // if (!cashLog || cashLog.totalCash < PICKUP_PRICE * numPulls)
+    //   throw throwError('캐시 잔액이 부족합니다.', 402);
+
+    // 뽑기권 확인
+    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+
+    const pickupTokens = await prisma.pickupToken.findMany({
+      where: { accountId: accountId, type: pickupType },
+      select: {
+        pickupTokenId: true,
+      },
     });
-    if (!cashLog || cashLog.totalCash < PICKUP_PRICE * numPulls)
-      throw throwError('캐시 잔액이 부족합니다.', 402);
+    if (pickupTokens.length < pickupAmount) throw throwError('뽑기권이 부족합니다.', 400);
+
+    const poolSize = 0;
+    switch (pickupType) {
+      case PICKUP_TYPE.ALL:
+        poolSize = await prisma.players.findMany({
+          select: { playerId },
+        }).length;
+        break;
+      case PICKUP_TYPE.TOP_500:
+        poolSize = 500;
+        break;
+      case PICKUP_TYPE.TOP_100:
+        poolSize = 100;
+        break;
+      default:
+        break;
+    }
 
     // 모든 선수 픽업확률 조회
-    const allPlayers = prisma.players.findMany({
+    const playerList = prisma.players.findMany({
       select: {
         playerId: true,
         pickupRate: true,
       },
+      take: { poolSize },
     });
 
     await prisma.$transaction(
       async (tx) => {
         let result = [];
 
-        // 캐쉬 변동 내역
-        await tx.cashLog.create({
+        // 뽑기권 변동 내역
+        await tx.pickupTokenLog.create({
           data: {
-            accountId: accountId,
-            totalCash: cashLog.totalCash - PICKUP_PRICE * numPulls,
-            purpose: `pickup ${numPulls} times`,
-            cashChange: -PICKUP_PRICE * numPulls,
+            type: pickupType,
+            purpose: `pickup ${pickupAmount} times`,
+            amount: pickupAmount,
           },
         });
 
         for (let i = 0; i < numPulls; i++) {
           // 뽑기
-          let random = Math.random();
+          let random = Math.random() * 1e8;
           let rateSum = 0;
           let pickup = null;
-          allPlayers.forEach((player) => {
-            sum += player.pickUpRate;
+          playerList.forEach((player) => {
+            rateSum += calculatePickupRate(calculateValue(player)); // 수정 필요
             if (pickup === null && rateSum >= random) pickup = player;
           });
 
@@ -198,7 +228,7 @@ export async function pickupPlayer(req, res, next) {
 export async function sellPlayer(req, res, next) {
   const accountId = +req.params.accountId;
   const rosterId = +req.body.rosterId;
-  const authAccountId = +req.account.accountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정
@@ -263,7 +293,7 @@ export async function sellPlayer(req, res, next) {
  */
 export async function getPlayers(req, res, next) {
   const accountId = +req.params.accountId;
-  const authAccountId = +req.account.accountId;
+  const authAccountId = +req.account;
 
   try {
     // 계정

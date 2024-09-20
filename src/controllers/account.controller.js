@@ -1,6 +1,9 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
 import Joi from 'joi';
+import AccountService from '../services/account.service.js';
+
+const accountService = new AccountService(prisma);
 
 //회원 가입
 export async function signAccount(req, res, next) {
@@ -51,6 +54,38 @@ export async function loginAccount(req, res, next) {
     res.header('authorization', `Bearer ${accessToken}`);
 
     return res.status(200).json({ accessToken: accessToken });
+  } catch (error) {
+    next(error);
+  }
+}
+// 아이디 삭제
+export async function deleteAccount(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account.accountId;
+
+  try {
+    await accountService.checkAccount(prisma, accountId, authAccountId);
+
+    await prisma.accounts.delete({
+      where: { accountId },
+    });
+
+    return res.status(200).json({ message: `아이디가 삭제 되었습니다.` });
+  } catch (error) {
+    next(error);
+  }
+}
+//계정 정보 조회
+export async function inquireAccount(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account.accountId;
+
+  try {
+    const account = await accountService.checkAccount(prisma, accountId, authAccountId);
+
+    const accountInfo = { name: account.name, rankScore: account.rankScore };
+
+    res.status(200).json({ accountInfo });
   } catch (error) {
     next(error);
   }

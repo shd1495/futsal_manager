@@ -89,8 +89,8 @@ export async function matchMaking(req, res, next) {
     const awayPool = await prisma.accounts.findMany({
       where: {
         rankScore: {
-          gte: homeAccount.rankScore - 50, // 최대 + 50
-          lte: homeAccount.rankScore + 50, // 최소 - 50
+          gte: hostAccount.rankScore + 50, // 최대 + 50
+          lte: hostAccount.rankScore - 50, // 최소 - 50
         },
       },
     });
