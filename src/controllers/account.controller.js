@@ -55,5 +55,34 @@ export async function loginAccount(req, res, next) {
     next(error);
   }
 }
+// 아이디 삭제 
+export async function deleteAccount(req, res,next) {
+  try {
+    const { accountId } = req.params;
+
+    const account = await userAccount.findUnique(accountId).exec();
+    if (!account) throw throwError(`해당 아이디를 찾을 수 없습니다.`, 404);
+
+    await userAccountAccount.delete({ _id: accountId }).exec();
+
+    return res.status(200).json({ message: `아이디가 삭제 되었습니다.` });
+  } catch (error){
+    next(error);
+  }
+}
+//계정 정보 조회
+export async function inquireAccount(req, res, next) {
+  const { accountId } = req.params;
+ try {
+  const account = await userAccount.findUnique({where: {accountId:accountId}});
+  if(!account) throw throwError(`해당 아이디를 찾을 수 없습니다.`, 404);
+  res.status(200).json({account_info: account});
+ } catch (error){
+  next(error);
+ }
+  
+}
+
+
 
 export default router;
