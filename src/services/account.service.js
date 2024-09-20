@@ -3,7 +3,12 @@ import { prisma } from '../utils/prisma/index.js';
 
 class AccountService {
   constructor(prisma) {
+    if (AccountService.instance) {
+      return AccountService.instance;
+    }
+
     this.prisma = prisma;
+    AccountService.instance = this;
   }
 
   async checkAccount(accountId, authAccountId) {
@@ -19,4 +24,5 @@ class AccountService {
   }
 }
 
-export default AccountService;
+const accountService = new AccountService(prisma);
+export default accountService;
