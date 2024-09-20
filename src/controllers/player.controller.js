@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error.handle.js';
 import AccountService from '../services/account.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../enum.js';
+import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
 
 const accountService = new AccountService(prisma);
 
@@ -135,22 +136,25 @@ export async function pickupPlayer(req, res, next) {
     //   throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 뽑기권 확인
-    if ((!pickupType) in PICKUP_TYPE) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
-    if ((!pickupAmount) in PICKUP_AMOUNT) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
+    if (!(pickupType in PICKUP_TYPE)) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
+    if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     const pickupTokens = await prisma.pickupToken.findMany({
-      where: { accountId: accountId, type: pickupType },
+      where: { accountId: +accountId, type: PICKUP_TYPE[pickupType] },
       select: {
         pickupTokenId: true,
       },
     });
-    if (pickupTokens.length < pickupAmount) throw throwError('뽑기권이 부족합니다.', 400);
+    if (pickupTokens.length < PICKUP_AMOUNT[pickupAmount])
+      throw throwError('뽑기권이 부족합니다.', 400);
 
-    const poolSize = 0;
-    switch (pickupType) {
+    let poolSize = 0;
+    switch (PICKUP_TYPE[pickupType]) {
       case PICKUP_TYPE.ALL:
         poolSize = await prisma.players.findMany({
-          select: { playerId },
+          select: {
+            playerId: true,
+          },
         }).length;
         break;
       case PICKUP_TYPE.TOP_500:
@@ -164,30 +168,27 @@ export async function pickupPlayer(req, res, next) {
     }
 
     // 모든 선수 픽업확률 조회
-    const playerList = prisma.players.findMany({
-      select: {
-        playerId: true,
-        pickupRate: true,
-      },
-      take: { poolSize },
+    const playerList = await prisma.players.findMany({
+      take: poolSize,
     });
 
-    await prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx) => {
         let result = [];
 
         // 뽑기권 변동 내역
         await tx.pickupTokenLog.create({
           data: {
-            type: pickupType,
-            purpose: `pickup ${pickupAmount} times`,
-            amount: pickupAmount,
+            accountId: +accountId,
+            type: PICKUP_TYPE[pickupType],
+            purpose: `pickup ${PICKUP_AMOUNT[pickupAmount]} times`,
+            amount: PICKUP_AMOUNT[pickupAmount],
           },
         });
 
-        for (let i = 0; i < numPulls; i++) {
+        for (let i = 0; i < PICKUP_AMOUNT[pickupAmount]; i++) {
           // 뽑기
-          let random = Math.random() * 1e8;
+          let random = Math.random() * 1e7; // 0 ~ 10000000
           let rateSum = 0;
           let pickup = null;
           playerList.forEach((player) => {
@@ -198,12 +199,13 @@ export async function pickupPlayer(req, res, next) {
           // 뽑은 선수 보유목록에 추가
           await tx.roster.create({
             data: {
-              accountId: accountId,
+              accountId: +accountId,
               playerId: pickup.playerId,
             },
           });
-          result.push(player);
+          result.push(pickup.playerName);
         }
+        return result;
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
