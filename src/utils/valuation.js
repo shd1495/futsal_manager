@@ -21,6 +21,7 @@ export function calculateValue(player) {
         (stamina * staminaWeight) +
         (defense * defenseWeight);
 
+        
     // 무작위 변동성 적용 (±5%)
     const variationPercentage = (Math.random() * 0.1) - 0.05;
     const value = baseValue * (1 + variationPercentage);
