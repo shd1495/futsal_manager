@@ -55,5 +55,3 @@ export async function loginAccount(req, res, next) {
     next(error);
   }
 }
-
-export default router;

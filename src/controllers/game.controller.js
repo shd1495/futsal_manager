@@ -121,7 +121,6 @@ export async function matchMaking(req, res, next) {
       defense: 0,
       stamina: 0,
     };
-    let homeValue = 0; // 라인업 가치
     for (const lineup of homeLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
@@ -140,8 +139,6 @@ export async function matchMaking(req, res, next) {
       homeStats.shootPower += player.shootPower;
       homeStats.defense += player.defense;
       homeStats.stamina += player.stamina;
-
-      homeValue += calculateValue(player);
     }
 
     homeStats.speed /= awayLineup.length;
@@ -167,7 +164,6 @@ export async function matchMaking(req, res, next) {
       defense: 0,
       stamina: 0,
     };
-    let awayValue = 0; // 라인업 가치
     for (const lineup of awayLineup) {
       const roster = await prisma.roster.findUnique({
         where: { rosterId: +lineup.rosterId },
@@ -186,8 +182,6 @@ export async function matchMaking(req, res, next) {
       awayStats.shootPower += player.shootPower;
       awayStats.defense += player.defense;
       awayStats.stamina += player.stamina;
-
-      awayValue += calculateValue(player);
     }
 
     awayStats.speed /= awayLineup.length;
@@ -233,6 +227,7 @@ export async function matchMaking(req, res, next) {
 
     let ball = 0;
     const goal = [0, 0];
+    const gameLog = [];
     for (let i = 0; i < 10; i++) {
       // home 축구력?
       let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS; // 250
@@ -248,14 +243,23 @@ export async function matchMaking(req, res, next) {
         DEFAULT_RANGE + // -21 ~ 39
         DEFAULT_RANGE * (advantage / 100); // 9
       ball += randomFactor;
+      if (ball) {
+        gameLog.push(`${i}페이즈 : ${homeAccount.name} 팀이 공을 ${ball}m 전진했습니다. `);
+      } else {
+        gameLog.push(`${i}페이즈 : ${away.name} 팀이 공을 ${-ball}m 전진했습니다.`);
+      }
 
       // home 골 찬스
       if (ball >= 80) {
         const goalRate = Math.min(homeStats.shootAccuracy + homeStats.shootPower, 100);
-        if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100)
+        if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
           // 골 확률
           // 200
           goal[0] += 1;
+          gameLog.push(`${i}페이즈 : ${homeAccount.name} 팀이 득점했습니다.`);
+        } else {
+          gameLog.push(`${i}페이즈 : ${homeAccount.name} 팀의 슛이 빗나갔습니다.`);
+        }
         ball = 0;
       }
 
@@ -263,7 +267,12 @@ export async function matchMaking(req, res, next) {
       if (ball <= -80) {
         const goalRate = Math.min(awayStats.shootAccuracy + awayStats.shootPower, 100);
         // 골 확률
-        if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) goal[1] += 1;
+        if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
+          goal[1] += 1;
+          gameLog.push(`${i}페이즈 : ${away.name} 팀이 득점했습니다.`);
+        } else {
+          gameLog.push(`${i}페이즈 : ${away.name} 팀의 슛이 빗나갔습니다.`);
+        }
         ball = 0;
       }
 
@@ -340,8 +349,8 @@ export async function matchMaking(req, res, next) {
     });
 
     return res.status(201).json({
+      gameLog: [...gameLog],
       data: game,
-      //message: `경기 결과: ${result[1]} : ${result[2]}로 ${result[0] ? '승리' : '패배'}했습니다. 현재 점수 ${curScore.rankScore}`,
     });
   } catch (error) {
     next(error);
