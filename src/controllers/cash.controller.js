@@ -73,7 +73,7 @@ export async function inquireCash(req, res, next) {
       orderBy: { createAt: 'desc' },
     });
 
-    res.status(200).json({ totalCash });
+    res.status(200).json({ totalCash: `${totalCash.totalCash}` });
   } catch (error) {
     next(error);
   }
