@@ -411,4 +411,19 @@ export async function inquirePlayers(req, res, next) {
   }
 
 }
+//라인업 조회
 
+export async function inquireLinenup(req, res, next) {
+  const accountId = +req.params.accountId;
+
+  try {
+    const lineup = await prisma.lineup.findMany({
+      where: { accountId },
+    });
+
+    res.status(200).json({ lineup });
+  } catch (error) {
+    next(error);
+  }
+  
+}
