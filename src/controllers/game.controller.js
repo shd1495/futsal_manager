@@ -84,9 +84,10 @@ export async function matchMaking(req, res, next) {
     // 여기서 lineup.length === 3인 애들만 필터링
     const awayPool = await prisma.accounts.findMany({
       where: {
+        accountId: { not: accountId },
         rankScore: {
-          gte: homeAccount.rankScore + 50, // 최대 + 50
-          lte: homeAccount.rankScore - 50, // 최소 - 50
+          gte: homeAccount.rankScore - 50, // 최소 - 50
+          lte: homeAccount.rankScore + 50, // 최대 + 50
         },
       },
     });
@@ -107,6 +108,8 @@ export async function matchMaking(req, res, next) {
         throw throwError('상대방을 찾을 수 없습니다.', 404);
       }
     }
+    console.log(away);
+    console.log(awayLineup);
 
     // 내 팀 점수
     const homeStyle = []; // 스타일
@@ -309,10 +312,17 @@ export async function matchMaking(req, res, next) {
         awayStats.defense *= 0.8;
       }
     }
+    console.log(goal[0]);
+    console.log(goal[1]);
+    let isWin;
+    console.log(isWin);
+
+    if (goal[0] > goal[1]) isWin = true;
+    else if (goal[0] < goal[1]) isWin = false;
 
     // 무승부일 경우 승부차기
     if (goal[0] === goal[1]) {
-      penaltyKick(homeLineup, awayLineup);
+      isWin = penaltyKick(homeLineup, awayLineup);
     }
 
     const game = await prisma.$transaction(async (tx) => {
@@ -331,14 +341,14 @@ export async function matchMaking(req, res, next) {
       const updateHomeScore = await tx.accounts.update({
         where: { accountId: accountId },
         data: {
-          rankScore: result[0] ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
+          rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
         },
       });
       // away 랭크 점수 갱신
       const updateAwayScore = await tx.accounts.update({
         where: { accountId: away.accountId },
         data: {
-          rankScore: !result[0] ? away.rankScore + 10 : away.rankScore - 10,
+          rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
         },
       });
       return game;
