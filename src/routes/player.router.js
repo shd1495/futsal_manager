@@ -5,6 +5,8 @@ import {
   sellPlayer,
   getPlayers,
   buyToken,
+  getAllPlayers,
+  getLinenup,
 } from '../controllers/player.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 
@@ -28,11 +30,21 @@ router.delete('/sell/:accountId', authMiddleware, sellPlayer);
 /**
  * 보유 선수 목록 조회 API
  */
-router.get('/myPlayers/:accountId', authMiddleware, getPlayers);
+router.get('/roster/:accountId', authMiddleware, getPlayers);
 
 /**
  * 뽑기권 구매 API
  */
 router.post('/token/:accountId', authMiddleware, buyToken);
+
+/**
+ * 전체 선수 목록 조회 API
+ */
+router.get('/players', getAllPlayers);
+
+/**
+ * 라인업 조회 API
+ */
+router.get('/lineup/:accountId', authMiddleware, getLinenup);
 
 export default router;

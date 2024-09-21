@@ -389,41 +389,93 @@ export async function buyToken(req, res, next) {
     next(error);
   }
 }
-//전체 선수 목록조회
-export async function inquirePlayers(req, res, next) {
-  const playerId = +req.params.playerId;
+
+/**
+ * 전체 선수 목록조회
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function getAllPlayers(req, res, next) {
   try {
-    const playerList = await prisma.players.findMany({
-      where: { playerId: playerId },
-      data: {
-        playerName: playerName,
-        speed: speed,
-        shootAccuracy: shootAccuracy,
-        shootPower: shootPower,
-        defense: defense,
-        stamina: stamina,
-        style: style,
-      },
-    });
-    res.status(200).json({ list_info: playerList });
+    const playerList = await prisma.players.findMany({});
+
+    // 데이터 가공
+    const result = [];
+    for (const player of playerList) {
+      // 선수 가치
+      const value = calculateValue(player);
+      // 선수 가격
+      const price = calculatePrice(value);
+      // 선수 뽑기
+      const pickupRate = calculatePickupRate(value);
+
+      result.push({
+        playerName: player.playerName,
+        speed: player.speed,
+        shootAccuracy: player.shootAccuracy,
+        shootPower: player.shootPower,
+        defense: player.defense,
+        stamina: player.stamina,
+        style: player.style,
+        price: price,
+        pickupRate: pickupRate,
+      });
+    }
+
+    res.status(200).json({ data: result });
   } catch (error) {
     next(error);
   }
-
 }
-//라인업 조회
 
-export async function inquireLinenup(req, res, next) {
+/**
+ * 라인업 조회
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function getLinenup(req, res, next) {
   const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
 
   try {
+    await accountService.checkAccount(accountId, authAccountId);
+
+    // 라인업 조회
     const lineup = await prisma.lineup.findMany({
       where: { accountId },
+      select: {
+        rosterId: true,
+      },
     });
+    if (!lineup || lineup.length < 3) throw throwError('라인업에 선수가 존재하지 않습니다.', 404);
 
-    res.status(200).json({ lineup });
+    // 데이터 가공
+    const result = [];
+    for (const item of lineup) {
+      // 라인업의 로스터 조회
+      const roster = await prisma.roster.findFirst({
+        where: { rosterId: item.rosterId },
+        select: {
+          playerId: true,
+          rank: true,
+        },
+      });
+
+      // 선수 이름
+      const playerName = await prisma.players.findFirst({
+        where: { playerId: roster.playerId },
+        select: {
+          playerName: true,
+        },
+      });
+      const rank = roster.rank;
+      result.push({ playerName, rank });
+    }
+
+    res.status(200).json({ data: result });
   } catch (error) {
     next(error);
   }
-  
 }
