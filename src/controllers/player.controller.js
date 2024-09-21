@@ -389,3 +389,26 @@ export async function buyToken(req, res, next) {
     next(error);
   }
 }
+//전체 선수 목록조회
+export async function inquirePlayers(req, res, next) {
+  const playerId = +req.params.playerId;
+  try {
+    const playerList = await prisma.players.findMany({
+      where: { playerId: playerId },
+      data: {
+        playerName: playerName,
+        speed: speed,
+        shootAccuracy: shootAccuracy,
+        shootPower: shootPower,
+        defense: defense,
+        stamina: stamina,
+        style: style,
+      },
+    });
+    res.status(200).json({ list_info: playerList });
+  } catch (error) {
+    next(error);
+  }
+
+}
+
