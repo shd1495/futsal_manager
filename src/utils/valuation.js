@@ -30,7 +30,7 @@ export function calculateValue(player) {
  */
 export function calculatePrice(value) {
   // 가격 = 가치 * 10000
-  return Math.round(value * 10000);
+  return Math.round(value * 60);
 }
 
 /**
