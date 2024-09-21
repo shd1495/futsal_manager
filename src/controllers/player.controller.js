@@ -14,7 +14,7 @@ import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/va
  */
 export async function createLineup(req, res, next) {
   const accountId = +req.params.accountId;
-  const rosterIds = +req.body.rosterIds;
+  const { rosterIds } = req.body;
   const authAccountId = +req.account;
 
   try {
@@ -29,8 +29,13 @@ export async function createLineup(req, res, next) {
       },
     });
     if (roster.length < 3) throw throwError('선수가 부족합니다.', 400);
+    console.log(rosterIds);
 
-    if (!rosterIds.length === 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
+    if (rosterIds.length !== 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
+
+    // 같은 선수가 포함된 경우
+    const duplicate = new Set(rosterIds).size !== rosterIds.length;
+    if (duplicate) throw throwError('같은 선수가 여러명 포함되어있습니다.', 409);
 
     // 보유하지 않은 선수가 포함된 경우
     const rosterArr = roster.map((item) => item.rosterId);
@@ -464,13 +469,14 @@ export async function getLinenup(req, res, next) {
       });
 
       // 선수 이름
-      const playerName = await prisma.players.findFirst({
+      const player = await prisma.players.findFirst({
         where: { playerId: roster.playerId },
         select: {
           playerName: true,
         },
       });
       const rank = roster.rank;
+      const playerName = player.playerName;
       result.push({ playerName, rank });
     }
 
