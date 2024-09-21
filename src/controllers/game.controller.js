@@ -59,6 +59,42 @@ function performKick(attacker, defender) {
   return randomAttack > randomDefense;
 }
 
+// 팀 스탯 계산 함수
+function calculateTeamStats(lineup) {
+  const styles = [];
+  const stats = {
+    speed: 0,
+    shootAccuracy: 0,
+    shootPower: 0,
+    defense: 0,
+    stamina: 0,
+  };
+
+  for (const lineupItem of lineup) {
+    styles.push(lineupItem.roster.player.style);
+    stats.speed += lineupItem.roster.player.speed;
+    stats.shootAccuracy += lineupItem.roster.player.shootAccuracy;
+    stats.shootPower += lineupItem.roster.player.shootPower;
+    stats.defense += lineupItem.roster.player.defense;
+    stats.stamina += lineupItem.roster.player.stamina;
+  }
+
+  return { styles, stats };
+}
+
+// 팀 컬러 산정 함수
+function getTeamStyle(styles) {
+  const countMap = {};
+  let teamStyle = '';
+
+  for (const item of styles) {
+    countMap[item] = (countMap[item] || 0) + 1;
+    if (countMap[item] >= 2) teamStyle = item;
+  }
+
+  return teamStyle;
+}
+
 /**
  * 매치메이킹 로직
  * @param {*} req
@@ -87,8 +123,8 @@ export async function matchMaking(req, res, next) {
       where: {
         accountId: { not: accountId },
         rankScore: {
-          gte: homeAccount.rankScore - 100, // 최소 - 50
-          lte: homeAccount.rankScore + 100, // 최대 + 50
+          gte: homeAccount.rankScore - 200, // 최소 - 50
+          lte: homeAccount.rankScore + 200, // 최대 + 50
         },
       },
     });
@@ -115,70 +151,29 @@ export async function matchMaking(req, res, next) {
     }
 
     // 내 팀 점수
-    const homeStyle = []; // 스타일
-    const homeStats = {
-      speed: 0,
-      shootAccuracy: 0,
-      shootPower: 0,
-      defense: 0,
-      stamina: 0,
-    };
-    for (const lineup of homeLineup) {
-      homeStyle.push(lineup.roster.player.style);
+    const { styles: homeStyle, stats: homeStats } = calculateTeamStats(homeLineup);
+    // 상대 팀 점수
+    const { styles: awayStyle, stats: awayStats } = calculateTeamStats(awayLineup);
 
-      homeStats.speed += lineup.roster.player.speed;
-      homeStats.shootAccuracy += lineup.roster.player.shootAccuracy;
-      homeStats.shootPower += lineup.roster.player.shootPower;
-      homeStats.defense += lineup.roster.player.defense;
-      homeStats.stamina += lineup.roster.player.stamina;
-    }
+    // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
+    const isHomeStyle = getTeamStyle(homeStyle);
 
-    //상대 팀 점수
-    const awayStyle = [];
-    const awayStats = {
-      speed: 0,
-      shootAccuracy: 0,
-      shootPower: 0,
-      defense: 0,
-      stamina: 0,
-    };
-    for (const lineup of awayLineup) {
-      awayStyle.push(lineup.roster.player.style);
+    // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
+    const isAwayStyle = getTeamStyle(awayStyle);
 
-      awayStats.speed += lineup.roster.player.speed;
-      awayStats.shootAccuracy += lineup.roster.player.shootAccuracy;
-      awayStats.shootPower += lineup.roster.player.shootPower;
-      awayStats.defense += lineup.roster.player.defense;
-      awayStats.stamina += lineup.roster.player.stamina;
-    }
+    // 내 팀 스탯 평균 계산
+    homeStats.speed /= homeLineup.length;
+    homeStats.shootAccuracy /= homeLineup.length;
+    homeStats.shootPower /= homeLineup.length;
+    homeStats.defense /= homeLineup.length;
+    homeStats.stamina /= homeLineup.length;
 
-    homeStats.speed /= awayLineup.length;
-    homeStats.shootAccuracy /= awayLineup.length;
-    homeStats.shootPower /= awayLineup.length;
-    homeStats.defense /= awayLineup.length;
-    homeStats.stamina /= awayLineup.length;
-
+    // 상대팀 스탯 평균 계산
     awayStats.speed /= awayLineup.length;
     awayStats.shootAccuracy /= awayLineup.length;
     awayStats.shootPower /= awayLineup.length;
     awayStats.defense /= awayLineup.length;
     awayStats.stamina /= awayLineup.length;
-
-    // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    let isHomeStyle = ''; // 팀 컬러
-    const homeCountMap = {};
-    for (const item of homeStyle) {
-      homeCountMap[item] = (homeCountMap[item] || 0) + 1;
-      if (homeCountMap[item] >= 2) isHomeStyle = item;
-    }
-
-    // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    let isAwayStyle = ''; // 팀 컬러
-    const awayCountMap = {};
-    for (const item of awayStyle) {
-      awayCountMap[item] = (awayCountMap[item] || 0) + 1;
-      if (awayCountMap[item] >= 2) isAwayStyle = item;
-    }
 
     // 팀 컬러 상성
     const advantageMap = {
@@ -236,10 +231,9 @@ export async function matchMaking(req, res, next) {
 
       // home 골 찬스
       if (ball >= 80) {
-        const goalRate = Math.min(homeStats.shootAccuracy + homeStats.shootPower, 100);
+        const goalRate = Math.min((homeStats.shootAccuracy + homeStats.shootPower) / 2, 100);
+        // 골 확률
         if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
-          // 골 확률
-          // 200
           goal[0] += 1;
           gameLog.push(`${i}페이즈 : ${homeAccount.id} 팀이 득점했습니다.`);
         } else {
@@ -250,7 +244,7 @@ export async function matchMaking(req, res, next) {
 
       // away 골 찬스
       if (ball <= -80) {
-        const goalRate = Math.min(awayStats.shootAccuracy + awayStats.shootPower, 100);
+        const goalRate = Math.min((awayStats.shootAccuracy + awayStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
           goal[1] += 1;
@@ -262,40 +256,34 @@ export async function matchMaking(req, res, next) {
       }
 
       // 경기 진행도에 따른 스탯 감소
-      homeStats.stamina -= i;
-      if (homeStats.stamina < 50) {
-        homeStats.shootAccuracy *= 0.95;
-        homeStats.shootPower *= 0.95;
-        homeStats.speed *= 0.95;
-        homeStats.defense *= 0.95;
-      } else if (homeStats.stamina < 25) {
-        homeStats.shootAccuracy *= 0.9;
-        homeStats.shootPower *= 0.9;
-        homeStats.speed *= 0.9;
-        homeStats.defense *= 0.9;
-      } else if (homeStats.stamina < 10) {
-        homeStats.shootAccuracy *= 0.8;
-        homeStats.shootPower *= 0.8;
-        homeStats.speed *= 0.8;
-        homeStats.defense *= 0.8;
+      homeStats.stamina *= 0.97;
+      if (i % 10 == 0) {
+        if (homeStats.stamina < 50) {
+          homeStats.shootAccuracy *= 0.9;
+          homeStats.shootPower *= 0.9;
+          homeStats.speed *= 0.9;
+          homeStats.defense *= 0.9;
+        } else if (homeStats.stamina < 25) {
+          homeStats.shootAccuracy *= 0.8;
+          homeStats.shootPower *= 0.8;
+          homeStats.speed *= 0.8;
+          homeStats.defense *= 0.8;
+        }
       }
 
-      awayStats.stamina -= i;
-      if (awayStats.stamina < 50) {
-        awayStats.shootAccuracy *= 0.95;
-        awayStats.shootPower *= 0.95;
-        awayStats.speed *= 0.95;
-        awayStats.defense *= 0.95;
-      } else if (awayStats.stamina < 25) {
-        awayStats.shootAccuracy *= 0.9;
-        awayStats.shootPower *= 0.9;
-        awayStats.speed *= 0.9;
-        awayStats.defense *= 0.9;
-      } else if (awayStats.stamina < 10) {
-        awayStats.shootAccuracy *= 0.8;
-        awayStats.shootPower *= 0.8;
-        awayStats.speed *= 0.8;
-        awayStats.defense *= 0.8;
+      awayStats.stamina *= 0.97;
+      if (i % 10 == 0) {
+        if (awayStats.stamina < 50) {
+          awayStats.shootAccuracy *= 0.9;
+          awayStats.shootPower *= 0.9;
+          awayStats.speed *= 0.9;
+          awayStats.defense *= 0.9;
+        } else if (awayStats.stamina < 25) {
+          awayStats.shootAccuracy *= 0.8;
+          awayStats.shootPower *= 0.8;
+          awayStats.speed *= 0.8;
+          awayStats.defense *= 0.8;
+        }
       }
     }
 
