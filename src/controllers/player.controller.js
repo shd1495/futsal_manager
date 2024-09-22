@@ -1,9 +1,8 @@
 import { prisma } from '../utils/prisma/index.js';
-import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
+import playerService from '../services/player.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../utils/enum.js';
-import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
 
 /**
  * 팀 편성 로직
@@ -264,7 +263,7 @@ export async function sellPlayer(req, res, next) {
     if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
 
     // 선수 가격
-    const price = calculatePrice(calculateValue(player));
+    const price = await playerService.calculatePrice(playerService.calculateValue(player));
 
     const result = await prisma.$transaction(async (tx) => {
       // 캐쉬 변동 내역
@@ -409,11 +408,11 @@ export async function getAllPlayers(req, res, next) {
     const result = [];
     for (const player of playerList) {
       // 선수 가치
-      const value = calculateValue(player);
+      const value = await playerService.calculateValue(player);
       // 선수 가격
-      const price = calculatePrice(value);
+      const price = await playerService.calculatePrice(value);
       // 선수 뽑기
-      const pickupRate = calculatePickupRate(value);
+      const pickupRate = await playerService.calculatePickupRate(value);
 
       result.push({
         playerName: player.playerName,
@@ -505,7 +504,9 @@ export async function rosterPl(req, res, next) {
     });
 
     // 선수 가격
-    const price = calculatePrice(calculateValue(rosterPlayer.player));
+    const price = await playerService.calculatePrice(
+      await playerService.calculateValue(rosterPlayer.player),
+    );
 
     // 데이터 가공
     const result = {
