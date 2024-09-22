@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma/index.js';
-import { throwError } from '../utils/error.handle.js';
+import { throwError } from '../utils/error/error.handle.js';
 
 export default async function (req, res, next) {
   try {

@@ -1,6 +1,6 @@
 import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
-import { throwError } from '../utils/error.handle.js';
+import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../utils/enum.js';
 import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
