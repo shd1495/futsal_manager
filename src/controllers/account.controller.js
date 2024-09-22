@@ -5,7 +5,12 @@ import bcrypt from 'bcrypt';
 import Joi from 'joi';
 import accountService from '../services/account.service.js';
 
-//회원 가입
+/**
+ * 회원 가입
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
 export async function signAccount(req, res, next) {
   const { id, name, password, confirmPassword } = req.body;
   try {
@@ -40,7 +45,13 @@ export async function signAccount(req, res, next) {
     next(error);
   }
 }
-//로그인
+/**
+ * 로그인
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
 export async function loginAccount(req, res, next) {
   const { id, password } = req.body;
 
@@ -64,7 +75,13 @@ export async function loginAccount(req, res, next) {
     next(error);
   }
 }
-// 아이디 삭제
+/**
+ * 아이디 삭제
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
 export async function deleteAccount(req, res, next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
@@ -81,7 +98,12 @@ export async function deleteAccount(req, res, next) {
     next(error);
   }
 }
-//계정 정보 조회
+/**
+ * 계정 정보 조회
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
 export async function inquireAccount(req, res, next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
@@ -97,7 +119,12 @@ export async function inquireAccount(req, res, next) {
     next(error);
   }
 }
-//랭킹 조회
+/**
+ * 랭킹 조회
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
 export async function checkRanking(req, res, next) {
   try {
     const ranking = await prisma.accounts.findMany({
@@ -121,6 +148,44 @@ export async function checkRanking(req, res, next) {
     }
 
     res.status(200).json({ ranking: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 보유한 뽑기권 조회
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function remainingToken(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
+
+  try {
+    accountService.checkAccount(accountId, authAccountId);
+
+    // all 뽑기권 갯수
+    const AllPickupToken = await prisma.pickupToken.findMany({
+      where: { accountId, type: 'all' },
+    });
+
+    // top100 뽑기권 갯수
+    const top100PickupToken = await prisma.pickupToken.findMany({
+      where: { accountId, type: 'top_100' },
+    });
+
+    // top500 뽑기권 갯수
+    const top500PickupToken = await prisma.pickupToken.findMany({
+      where: { accountId, type: 'top_500' },
+    });
+
+    return res.status(200).json({
+      all: AllPickupToken.length || 0,
+      TOP_100: top100PickupToken.length || 0,
+      TOP_500: top500PickupToken.length || 0,
+    });
   } catch (error) {
     next(error);
   }
