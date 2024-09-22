@@ -32,13 +32,12 @@ export async function matchMaking(req, res, next) {
     if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
 
     // 상대 목록
-    // 여기서 lineup.length === 3인 애들만 필터링
     const awayPool = await prisma.accounts.findMany({
       where: {
         accountId: { not: accountId },
         rankScore: {
-          gte: homeAccount.rankScore - 200, // 최소 - 50
-          lte: homeAccount.rankScore + 200, // 최대 + 50
+          gte: homeAccount.rankScore - 200, // 최소
+          lte: homeAccount.rankScore + 200, // 최대
         },
       },
     });
@@ -55,8 +54,8 @@ export async function matchMaking(req, res, next) {
         where: { accountId: away.accountId },
         include: {
           account: { select: { id: true } },
-          roster: { include: { player: true } },
-        }, // 선수 정보를 포함
+          roster: { include: { player: true } }, // 선수 정보를 포함
+        },
       });
       cnt++;
       if (cnt >= 100) {
@@ -120,19 +119,17 @@ export async function matchMaking(req, res, next) {
     const gameLog = [];
     for (let i = 0; i < 50; i++) {
       // home 축구력?
-      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS; // 250
+      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS;
       // away 축구력?
-      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / AVG_PLAYERS; // 200
+      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / AVG_PLAYERS;
 
       // 스탯 차이에 따라 공 이동 거리 계산 (양 팀 간 스탯 차이의 비율 사용)
       const advantage = home - away;
 
       // 공 이동 및 이동 거리 (랜덤 요소 추가)
       const randomFactor = Math.round(
-        Math.random() * RANDOM_RANGE * 2 - // 0 ~ 60
-          RANDOM_RANGE + // -21 ~ 39
-          RANDOM_RANGE * (advantage / 100),
-      ); // 9
+        Math.random() * RANDOM_RANGE * 2 - RANDOM_RANGE + RANDOM_RANGE * (advantage / 100),
+      );
       ball += randomFactor;
       if (randomFactor >= 0) {
         gameLog.push(`${i}페이즈 : ${homeAccount.id} 팀이 공을 ${randomFactor}m 전진했습니다. `);
@@ -211,7 +208,6 @@ export async function matchMaking(req, res, next) {
 
     const game = await prisma.$transaction(async (tx) => {
       // 경기 결과 등록
-      // $$ 상대방 game도 등록해줘야 함 $$
       const game = await tx.game.create({
         data: {
           homeId: accountId,
