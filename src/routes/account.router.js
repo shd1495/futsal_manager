@@ -6,6 +6,7 @@ import {
   deleteAccount,
   inquireAccount,
   checkRanking,
+  remainingToken,
 } from '../controllers/account.controller.js';
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.delete(`/account/:accountId`, authMiddleware, deleteAccount);
 router.get(`/account/:accountId`, authMiddleware, inquireAccount);
 //랭킹 조회
 router.get(`/ranking`, checkRanking);
+//보유 뽑기권 조회
+router.get(`/token/:accountId`, authMiddleware, remainingToken);
 
 export default router;
