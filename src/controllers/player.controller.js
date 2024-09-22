@@ -427,3 +427,28 @@ export async function inquireLinenup(req, res, next) {
   }
   
 }
+//보유선수 상세정보
+
+export async function name(req,res,next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
+  try{
+    await accountService.checkAccount(accountId, authAccountId);
+    const rosterPlayer =  await prisma.roster.findUnique({
+      where: {playerId},
+      select: {
+        playerName:playerName,
+        speed: speed,
+        shootAccuracy: shootAccuracy,
+        shootPower:shootPower,
+        defense: defense,
+        stamina: stamina,
+        style: style,
+        price: price,
+      },
+    })
+    res.status(200).json({ rosterPlayerinfo: rosterPlayer });
+  } catch (error) {
+    next(error);
+  }
+}
