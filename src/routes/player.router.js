@@ -6,7 +6,7 @@ import {
   getPlayers,
   buyToken,
   getAllPlayers,
-  getLinenup,
+  getLineup,
   rosterPl,
 } from '../controllers/player.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
@@ -46,7 +46,7 @@ router.get('/players', getAllPlayers);
 /**
  * 라인업 조회 API
  */
-router.get('/lineup/:accountId', authMiddleware, getLinenup);
+router.get('/lineup/:accountId', authMiddleware, getLineup);
 
 /**
  * 보유선수 상세보기 API
