@@ -5,7 +5,7 @@ import {
   loginAccount,
   deleteAccount,
   inquireAccount,
-  caeckRanking,
+  checkRanking,
 } from '../controllers/account.controller.js';
 
 const router = express.Router();
@@ -19,5 +19,6 @@ router.delete(`/account/:accountId`, authMiddleware, deleteAccount);
 //계정 조회
 router.get(`/account/:accountId`, authMiddleware, inquireAccount);
 //랭킹 조회
-router.get(`/ranking/:accountId`, caeckRanking);
+router.get(`/ranking`, checkRanking);
+
 export default router;

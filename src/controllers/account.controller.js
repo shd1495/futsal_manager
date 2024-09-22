@@ -98,17 +98,30 @@ export async function inquireAccount(req, res, next) {
   }
 }
 //랭킹 조회
-export async function caeckRanking(req,res,next) {
-  const accountId = +req.params.accountId;
- 
-  try{
-    const rankKing =  await prisma.accounts.findFirst({
-      where: { accountId },
-      data: {rankScore:rankScore},
+export async function checkRanking(req, res, next) {
+  try {
+    const ranking = await prisma.accounts.findMany({
+      select: {
+        id: true,
+        name: true,
+        rankScore: true,
+      },
+      orderBy: { rankScore: 'desc' },
     });
-    res.status(200).json({ rankKing });
+
+    const result = [];
+
+    for (let i = 0; i < ranking.length; i++) {
+      result.push({
+        ranking: i + 1,
+        id: ranking[i].id,
+        name: ranking[i].name,
+        rankScore: ranking[i].rankScore,
+      });
+    }
+
+    res.status(200).json({ ranking: result });
   } catch (error) {
     next(error);
   }
 }
-//죄송합니다 계속틀려서ㅠㅠ
