@@ -7,6 +7,7 @@ import {
   buyToken,
   getAllPlayers,
   getLinenup,
+  rosterPl,
 } from '../controllers/player.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 
@@ -47,4 +48,8 @@ router.get('/players', getAllPlayers);
  */
 router.get('/lineup/:accountId', authMiddleware, getLinenup);
 
+/**
+ * 보유선수 상세보기 API
+ */
+router.get('/roster/:accountId', authMiddleware, rosterPl);
 export default router;
