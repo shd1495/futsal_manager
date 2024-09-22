@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma/index.js';
-import { throwError } from '../utils/error.handle.js';
+import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import playerService from '../services/player.service.js';
 import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../utils/enum.js';
