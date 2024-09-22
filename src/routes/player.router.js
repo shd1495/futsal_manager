@@ -51,5 +51,6 @@ router.get('/lineup/:accountId', authMiddleware, getLinenup);
 /**
  * 보유선수 상세보기 API
  */
-router.get('/roster/:accountId', rosterPl);
+router.get('/player/:accountId', authMiddleware, rosterPl);
+
 export default router;

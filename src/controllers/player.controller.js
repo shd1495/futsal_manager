@@ -479,27 +479,42 @@ export async function getLinenup(req, res, next) {
     next(error);
   }
 }
-//보유선수 상세정보
 
-export async function rosterPl(req,res,next) {
+/**
+ * 보유 선수 상세보기 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ */
+export async function rosterPl(req, res, next) {
   const accountId = +req.params.accountId;
+  const rosterId = +req.body.rosterId;
   const authAccountId = +req.account;
-  try{
+  try {
     await accountService.checkAccount(accountId, authAccountId);
-    const rosterPlayer =  await prisma.roster.findUnique({
-      where: {playerId},
-      select: {
-        playerName:playerName,
-        speed: speed,
-        shootAccuracy: shootAccuracy,
-        shootPower:shootPower,
-        defense: defense,
-        stamina: stamina,
-        style: style,
-        price: price,
-      },
-    })
-    res.status(200).json({ rosterPlayerinfo: rosterPlayer });
+
+    const rosterPlayer = await prisma.roster.findUnique({
+      where: { rosterId },
+      include: { player: true },
+    });
+
+    // 선수 가격
+    const price = calculatePrice(calculateValue(rosterPlayer.player));
+
+    // 데이터 가공
+    const result = {
+      playerName: rosterPlayer.player.playerName,
+      speed: rosterPlayer.player.speed,
+      shootAccuracy: rosterPlayer.player.shootAccuracy,
+      shootPower: rosterPlayer.player.shootPower,
+      defense: rosterPlayer.player.defense,
+      stamina: rosterPlayer.player.stamina,
+      style: rosterPlayer.player.style,
+      price: price,
+      rank: rosterPlayer.rank,
+    };
+
+    res.status(200).json({ playerInfo: result });
   } catch (error) {
     next(error);
   }
