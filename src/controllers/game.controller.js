@@ -3,10 +3,10 @@ import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import gameService from '../services/game.service.js';
 import {
-  AVG_PLAYERS,
+  NUM_PLAYERS,
   RANDOM_RANGE,
-  SHOOT_CHANCE,
-  TEAM_COLOR_ADVENTAGE,
+  SHOOTABLE_DISTANCE,
+  TEAM_COLOR_ADVANTAGE,
 } from '../utils/constants.js';
 
 /**
@@ -100,19 +100,19 @@ export async function matchMaking(req, res, next) {
 
     // home 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
-      homeStats.speed *= TEAM_COLOR_ADVENTAGE;
-      homeStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
-      homeStats.shootPower *= TEAM_COLOR_ADVENTAGE;
-      homeStats.defense *= TEAM_COLOR_ADVENTAGE;
-      homeStats.stamina *= TEAM_COLOR_ADVENTAGE;
+      homeStats.speed *= TEAM_COLOR_ADVANTAGE;
+      homeStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
+      homeStats.shootPower *= TEAM_COLOR_ADVANTAGE;
+      homeStats.defense *= TEAM_COLOR_ADVANTAGE;
+      homeStats.stamina *= TEAM_COLOR_ADVANTAGE;
     }
     // away 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
-      awayStats.speed *= TEAM_COLOR_ADVENTAGE;
-      awayStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
-      awayStats.shootPower *= TEAM_COLOR_ADVENTAGE;
-      awayStats.defense *= TEAM_COLOR_ADVENTAGE;
-      awayStats.stamina *= TEAM_COLOR_ADVENTAGE;
+      awayStats.speed *= TEAM_COLOR_ADVANTAGE;
+      awayStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
+      awayStats.shootPower *= TEAM_COLOR_ADVANTAGE;
+      awayStats.defense *= TEAM_COLOR_ADVANTAGE;
+      awayStats.stamina *= TEAM_COLOR_ADVANTAGE;
     }
 
     let ball = 0;
@@ -120,9 +120,9 @@ export async function matchMaking(req, res, next) {
     const gameLog = [];
     for (let i = 0; i < 50; i++) {
       // home 축구력?
-      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS; // 250
+      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / NUM_PLAYERS; // 250
       // away 축구력?
-      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / AVG_PLAYERS; // 200
+      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / NUM_PLAYERS; // 200
 
       // 스탯 차이에 따라 공 이동 거리 계산 (양 팀 간 스탯 차이의 비율 사용)
       const advantage = home - away;
@@ -143,7 +143,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // home 골 찬스
-      if (ball >= SHOOT_CHANCE) {
+      if (ball >= SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((homeStats.shootAccuracy + homeStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -156,7 +156,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // away 골 찬스
-      if (ball <= -SHOOT_CHANCE) {
+      if (ball <= -SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((awayStats.shootAccuracy + awayStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
