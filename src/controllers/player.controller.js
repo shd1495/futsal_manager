@@ -34,33 +34,13 @@ export async function createLineup(req, res, next) {
     if (rosterIds.length !== 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
 
     // 같은 선수가 포함된 경우
-    const duplicate = new Set(rosterIds).size !== rosterIds.length;
-    if (duplicate) throw throwError('같은 선수가 여러명 포함되어있습니다.', 409);
+    const duplicated = new Set(rosterIds).size !== rosterIds.length;
+    if (duplicated) throw throwError('같은 선수가 여러명 포함되어있습니다.', 409);
 
     // 보유하지 않은 선수가 포함된 경우
     const rosterArr = roster.map((item) => item.rosterId);
     const notIncludes = rosterIds.filter((id) => !rosterArr.includes(id));
     if (notIncludes.length > 0) throw throwError('보유하지 않은 선수가 포함 되어있습니다.', 400);
-
-    /*// 팀 편성
-    await prisma.$transaction(async (tx) => {
-      // 기존 편성 삭제
-      await tx.lineup.deleteMany({
-        where: { accountId: accountId },
-      });
-
-      // 편성 추가
-      const createLineup = rosterIds.map((rosterId) => {
-        tx.lineup.create({
-          data: {
-            accountId: accountId,
-            rosterId: rosterId,
-          },
-        });
-      });
-
-      await Promise.all(createLineup);
-    });*/
 
     // 기존 라인업 조회
     const lineup = await prisma.lineup.findMany({
@@ -144,9 +124,8 @@ export async function pickupPlayer(req, res, next) {
 
     const pickupTokens = await prisma.pickupToken.findMany({
       where: { accountId: accountId, type: PICKUP_TYPE[pickupType] },
-      select: {
-        pickupTokenId: true,
-      },
+      take: PICKUP_AMOUNT[pickupAmount],
+      orderBy: { createAt: 'asc' },
     });
     if (pickupTokens.length < PICKUP_AMOUNT[pickupAmount])
       throw throwError('뽑기권이 부족합니다.', 400);
@@ -206,18 +185,18 @@ export async function pickupPlayer(req, res, next) {
               if (pickup === null && rateSum >= random) pickup = player;
             });
           } else {
-            let random = Math.random() * (1e7 + 1e6 + 60); // 0 ~ 10000000
+            let random = Math.random() * 1e7; // 0 ~ 10000000
             playerList.forEach((player) => {
               rateSum += calculatePickupRate(calculateValue(player));
               if (pickup === null && rateSum >= random) pickup = player;
             });
           }
 
-          // 혹시 안뽑히면
-          if (!pickup) {
-            i--;
-            continue;
-          }
+          await tx.pickupToken.deleteMany({
+            where: {
+              pickupTokenId: { in: pickupTokens.map((token) => token.pickupTokenId) },
+            },
+          });
 
           // 뽑은 선수 보유목록에 추가
           await tx.roster.create({
