@@ -14,7 +14,7 @@ import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/va
  */
 export async function createLineup(req, res, next) {
   const accountId = +req.params.accountId;
-  const rosterIds = +req.body.rosterIds;
+  const { rosterIds } = req.body;
   const authAccountId = +req.account;
 
   try {
@@ -29,8 +29,13 @@ export async function createLineup(req, res, next) {
       },
     });
     if (roster.length < 3) throw throwError('선수가 부족합니다.', 400);
+    console.log(rosterIds);
 
-    if (!rosterIds.length === 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
+    if (rosterIds.length !== 3) throw throwError('3명의 선수만 선택해주십시오.', 400);
+
+    // 같은 선수가 포함된 경우
+    const duplicate = new Set(rosterIds).size !== rosterIds.length;
+    if (duplicate) throw throwError('같은 선수가 여러명 포함되어있습니다.', 409);
 
     // 보유하지 않은 선수가 포함된 경우
     const rosterArr = roster.map((item) => item.rosterId);
@@ -267,9 +272,11 @@ export async function sellPlayer(req, res, next) {
 
     // 라인업에 존재하면
     const lineup = await prisma.lineup.findMany({
-      where: { accountId: accountId },
+      where: { accountId, rosterId },
     });
-    if (lineup) throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
+    console.log(lineup);
+    if (lineup.length > 0)
+      throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
     // 선수 정보
     const player = await prisma.players.findFirst({
@@ -277,14 +284,17 @@ export async function sellPlayer(req, res, next) {
     });
     if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
 
+    // 선수 가격
+    const price = calculatePrice(calculateValue(player));
+
     const result = await prisma.$transaction(async (tx) => {
       // 캐쉬 변동 내역
       const result = await tx.cashLog.create({
         data: {
           accountId: accountId,
-          totalCash: cashLog.totalCash + player.price,
+          totalCash: cashLog.totalCash + price,
           purpose: 'sell',
-          cashChange: player.price,
+          cashChange: price,
         },
       });
 
@@ -318,16 +328,32 @@ export async function getPlayers(req, res, next) {
     await accountService.checkAccount(accountId, authAccountId);
 
     // 보유 선수 목록 조회
-    const roster = prisma.roster.findMany({
+    const roster = await prisma.roster.findMany({
       where: { accountId },
       select: {
+        rosterId: true,
         playerId: true,
         rank: true,
       },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
 
-    res.status(200).json({ data: roster });
+    // 데이터 가공
+    const result = [];
+    for (const item of roster) {
+      const player = await prisma.players.findFirst({
+        where: { playerId: item.playerId },
+        select: {
+          playerName: true,
+        },
+      });
+      const playerName = player.playerName;
+      const rank = item.rank;
+
+      result.push({ rosterId: item.rosterId, playerId: item.playerId, playerName, rank });
+    }
+
+    res.status(200).json({ data: result });
   } catch (error) {
     next(error);
   }
@@ -464,13 +490,14 @@ export async function getLinenup(req, res, next) {
       });
 
       // 선수 이름
-      const playerName = await prisma.players.findFirst({
+      const player = await prisma.players.findFirst({
         where: { playerId: roster.playerId },
         select: {
           playerName: true,
         },
       });
       const rank = roster.rank;
+      const playerName = player.playerName;
       result.push({ playerName, rank });
     }
 
