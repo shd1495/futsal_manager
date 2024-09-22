@@ -1,5 +1,4 @@
 import { prisma } from '../utils/prisma/index.js';
-import { throwError } from '../utils/error.handle.js';
 
 class GameService {
   constructor(prisma) {
@@ -11,7 +10,12 @@ class GameService {
     GameService.instance = this;
   }
 
-  // 승부 차기
+  /**
+   * 승부 차기
+   * @param {Object} homeLineup
+   * @param {Object} awayLineup
+   * @returns {Boolean} isWin
+   */
   async penaltyKick(homeLineup, awayLineup) {
     // // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
     let homeDefender = homeLineup[0].roster.player;
@@ -60,7 +64,13 @@ class GameService {
     }
   }
 
-  // 킥 수행 로직: 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
+  /**
+   * 킥 수행
+   * @param {*} attacker
+   * @param {*} defender
+   * @returns
+   * @author 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
+   */
   async performKick(attacker, defender) {
     const attackScore = attacker.shootAccuracy + attacker.shootPower;
     const randomAttack = Math.random() * attackScore;
@@ -69,7 +79,11 @@ class GameService {
     return randomAttack > randomDefense;
   }
 
-  // 팀 스탯 계산 함수
+  /**
+   * 팀 스탯 계산
+   * @param {Object} lineup
+   * @returns {Object} styles, stats
+   */
   async calculateTeamStats(lineup) {
     const styles = [];
     const stats = {
@@ -92,7 +106,11 @@ class GameService {
     return { styles, stats };
   }
 
-  // 팀 컬러 산정 함수
+  /**
+   * 팀 컬러
+   * @param {Array} styles
+   * @returns {String} style
+   */
   async getTeamStyle(styles) {
     const countMap = {};
     let teamStyle = '';
