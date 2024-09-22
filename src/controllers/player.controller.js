@@ -429,7 +429,7 @@ export async function inquireLinenup(req, res, next) {
 }
 //보유선수 상세정보
 
-export async function name(req,res,next) {
+export async function rostPl(req,res,next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
   try{
