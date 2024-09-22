@@ -8,4 +8,4 @@ export const RANDOM_RANGE = 30;
 export const SHOOT_CHANCE = 80;
 
 // 팀 컬러 보너스 비율
-export const TEAM_COLOR_ADVENTAGE = 1.1;
+export const TEAM_COLOR_ADVANTAGE = 1.1;

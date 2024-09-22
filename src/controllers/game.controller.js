@@ -6,7 +6,7 @@ import {
   AVG_PLAYERS,
   RANDOM_RANGE,
   SHOOT_CHANCE,
-  TEAM_COLOR_ADVENTAGE,
+  TEAM_COLOR_ADVANTAGE,
 } from '../utils/constants.js';
 
 /**
@@ -72,10 +72,10 @@ export async function matchMaking(req, res, next) {
       await gameService.calculateTeamStats(awayLineup);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isHomeStyle = await gameService.getTeamStyle(homeStyle);
+    const isHomeStyle = gameService.getTeamStyle(homeStyle);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isAwayStyle = await gameService.getTeamStyle(awayStyle);
+    const isAwayStyle = gameService.getTeamStyle(awayStyle);
 
     // 내 팀 스탯 평균 계산
     homeStats.speed /= homeLineup.length;
@@ -100,19 +100,19 @@ export async function matchMaking(req, res, next) {
 
     // home 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
-      homeStats.speed *= TEAM_COLOR_ADVENTAGE;
-      homeStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
-      homeStats.shootPower *= TEAM_COLOR_ADVENTAGE;
-      homeStats.defense *= TEAM_COLOR_ADVENTAGE;
-      homeStats.stamina *= TEAM_COLOR_ADVENTAGE;
+      homeStats.speed *= TEAM_COLOR_ADVANTAGE;
+      homeStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
+      homeStats.shootPower *= TEAM_COLOR_ADVANTAGE;
+      homeStats.defense *= TEAM_COLOR_ADVANTAGE;
+      homeStats.stamina *= TEAM_COLOR_ADVANTAGE;
     }
     // away 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
-      awayStats.speed *= TEAM_COLOR_ADVENTAGE;
-      awayStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
-      awayStats.shootPower *= TEAM_COLOR_ADVENTAGE;
-      awayStats.defense *= TEAM_COLOR_ADVENTAGE;
-      awayStats.stamina *= TEAM_COLOR_ADVENTAGE;
+      awayStats.speed *= TEAM_COLOR_ADVANTAGE;
+      awayStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
+      awayStats.shootPower *= TEAM_COLOR_ADVANTAGE;
+      awayStats.defense *= TEAM_COLOR_ADVANTAGE;
+      awayStats.stamina *= TEAM_COLOR_ADVANTAGE;
     }
 
     let ball = 0;
@@ -206,7 +206,7 @@ export async function matchMaking(req, res, next) {
 
     // 무승부일 경우 승부차기
     if (goal[0] === goal[1]) {
-      isWin = await gameService.penaltyKick(homeLineup, awayLineup);
+      isWin = gameService.penaltyKick(homeLineup, awayLineup);
     }
 
     const game = await prisma.$transaction(async (tx) => {
