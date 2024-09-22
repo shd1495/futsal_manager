@@ -97,3 +97,18 @@ export async function inquireAccount(req, res, next) {
     next(error);
   }
 }
+//랭킹 조회
+export async function caeckRanking(req,res,next) {
+  const accountId = +req.params.accountId;
+ 
+  try{
+    const rankKing =  await prisma.accounts.findFirst({
+      where: { accountId },
+      data: {rankScore:rankScore},
+    });
+    res.status(200).json({ rankKing });
+  } catch (error) {
+    next(error);
+  }
+}
+//죄송합니다 계속틀려서ㅠㅠ
