@@ -2,6 +2,12 @@ import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error.handle.js';
 import accountService from '../services/account.service.js';
 import gameService from '../services/game.service.js';
+import {
+  AVG_PLAYERS,
+  RANDOM_RANGE,
+  SHOOT_CHANCE,
+  TEAM_COLOR_ADVENTAGE,
+} from '../utils/constants.js';
 
 /**
  * 매치메이킹 로직
@@ -94,23 +100,20 @@ export async function matchMaking(req, res, next) {
 
     // home 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
-      homeStats.speed *= 1.1;
-      homeStats.shootAccuracy *= 1.1;
-      homeStats.shootPower *= 1.1;
-      homeStats.defense *= 1.1;
-      homeStats.stamina *= 1.1;
+      homeStats.speed *= TEAM_COLOR_ADVENTAGE;
+      homeStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
+      homeStats.shootPower *= TEAM_COLOR_ADVENTAGE;
+      homeStats.defense *= TEAM_COLOR_ADVENTAGE;
+      homeStats.stamina *= TEAM_COLOR_ADVENTAGE;
     }
     // away 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
-      awayStats.speed *= 1.1;
-      awayStats.shootAccuracy *= 1.1;
-      awayStats.shootPower *= 1.1;
-      awayStats.defense *= 1.1;
-      awayStats.stamina *= 1.1;
+      awayStats.speed *= TEAM_COLOR_ADVENTAGE;
+      awayStats.shootAccuracy *= TEAM_COLOR_ADVENTAGE;
+      awayStats.shootPower *= TEAM_COLOR_ADVENTAGE;
+      awayStats.defense *= TEAM_COLOR_ADVENTAGE;
+      awayStats.stamina *= TEAM_COLOR_ADVENTAGE;
     }
-
-    const AVG_PLAYERS = 3;
-    const DEFAULT_RANGE = 30;
 
     let ball = 0;
     const goal = [0, 0];
@@ -126,9 +129,9 @@ export async function matchMaking(req, res, next) {
 
       // 공 이동 및 이동 거리 (랜덤 요소 추가)
       const randomFactor = Math.round(
-        Math.random() * DEFAULT_RANGE * 2 - // 0 ~ 60
-          DEFAULT_RANGE + // -21 ~ 39
-          DEFAULT_RANGE * (advantage / 100),
+        Math.random() * RANDOM_RANGE * 2 - // 0 ~ 60
+          RANDOM_RANGE + // -21 ~ 39
+          RANDOM_RANGE * (advantage / 100),
       ); // 9
       ball += randomFactor;
       if (randomFactor >= 0) {
@@ -140,7 +143,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // home 골 찬스
-      if (ball >= 80) {
+      if (ball >= SHOOT_CHANCE) {
         const goalRate = Math.min((homeStats.shootAccuracy + homeStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -153,7 +156,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // away 골 찬스
-      if (ball <= -80) {
+      if (ball <= -SHOOT_CHANCE) {
         const goalRate = Math.min((awayStats.shootAccuracy + awayStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -237,7 +240,7 @@ export async function matchMaking(req, res, next) {
 
     return res.status(201).json({
       gameLog: [...gameLog],
-      data: game,
+      result: `경기 결과: [${goal[0]}:${goal[1]}]로 ${isWin ? homeAccount.id + '(home)' : awayLineup[0].account.id + '(away)'} 팀이 ${goal[0] == goal[1] ? '승부차기로 인해' : ''}  승리했습니다.`,
     });
   } catch (error) {
     next(error);
