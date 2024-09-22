@@ -18,35 +18,37 @@ model accounts {
   id String @unique @db.Char(16)
   password String @db.Char(16)
   name String @db.Char(4)
-  rankScore Int
+  rankScore Int @default(1000)
 
-  roaster roaster[]
-  lineUp lineUp[]
+  roster roster[]
+  lineup lineup[]
   cashLog cashLog[]
+  pickupToken pickupToken[]
+  pickupTokenLog pickupTokenLog[]
 
-  host game[] @relation("host")
-  opponent game[] @relation("opponent")
+  home game[] @relation("home")
+  away game[] @relation("away")
 }
 
-model roaster {
-  roasterId Int @id @default(autoincrement())
+model roster {
+  rosterId Int @id @default(autoincrement())
   accountId Int 
   playerId Int
   rank String @default("normal")
 
-  lineUp lineUp?
+  lineup lineup?
 
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
   player players @relation(fields: [playerId], references: [playerId], onDelete: Cascade)
 }
 
-model lineUp {
-  lineUpId Int @id @default(autoincrement())
+model lineup {
+  lineupId Int @id @default(autoincrement())
   accountId Int 
-  roasterId Int @unique
+  rosterId Int @unique
 
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
-  roaster roaster @relation(fields: [roasterId], references: [roasterId], onDelete: Cascade)
+  roster roster @relation(fields: [rosterId], references: [rosterId], onDelete: Cascade)
 }
 
 model players {
@@ -58,22 +60,20 @@ model players {
   defense Int
   stamina Int
   style String
-  pickUpRate Int
-  price Int
 
-  roaster roaster[]
+  roster roster[]
 }
 
 model game {
   gameId Int @id @default(autoincrement())
-  hostId Int
-  opponentId Int
+  homeId Int
+  awayId Int
   win Boolean
-  hostScore Int
-  opponentScore Int
+  homeScore Int
+  awayScore Int
 
-  host accounts @relation("host", fields: [hostId], references: [accountId], onDelete: Cascade)
-  opponent accounts @relation("opponent",fields: [opponentId], references: [accountId], onDelete: Cascade)
+  home accounts @relation("home", fields: [homeId], references: [accountId], onDelete: Cascade)
+  away accounts @relation("away",fields: [awayId], references: [accountId], onDelete: Cascade)
 }
 
 model cashLog {
@@ -87,3 +87,22 @@ model cashLog {
   account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
 }
 
+model pickupToken {
+  pickupTokenId Int @id @default(autoincrement())
+  accountId Int
+  type String 
+  createAt DateTime @default(now())
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+}
+
+model pickupTokenLog {
+  pickupTokenLogId Int @id @default(autoincrement())
+  accountId Int
+  type String 
+  purpose String
+  amount Int
+  createAt DateTime @default(now())
+
+  account accounts @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+}
