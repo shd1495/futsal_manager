@@ -27,7 +27,7 @@ router.post('/pickup/:accountId', authMiddleware, pickupPlayer);
 /**
  * 선수 강화 API
  */
-router.post('/upgrade/:accountId', authMiddleware, upgradePlayer);
+router.patch('/upgrade/:accountId', authMiddleware, upgradePlayer);
 
 /**
  * 선수 판매 API
