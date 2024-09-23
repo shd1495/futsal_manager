@@ -72,10 +72,10 @@ export async function matchMaking(req, res, next) {
       await gameService.calculateTeamStats(awayLineup);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isHomeStyle = gameService.getTeamStyle(homeStyle);
+    const isHomeStyle = await gameService.getTeamStyle(homeStyle);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isAwayStyle = gameService.getTeamStyle(awayStyle);
+    const isAwayStyle = await gameService.getTeamStyle(awayStyle);
 
     // 내 팀 스탯 평균 계산
     await gameService.modifyStats(homeStats, homeLineup.length, '/');
@@ -196,7 +196,11 @@ export async function matchMaking(req, res, next) {
         where: { accountId: accountId },
         data: {
           //rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
-          rankScore: gameService.calculateElo(homeAccount.rankScore, awayLineup[0].account.rankScore, isWin)
+          rankScore: gameService.calculateElo(
+            homeAccount.rankScore,
+            awayLineup[0].account.rankScore,
+            isWin,
+          ),
         },
       });
       // away 랭크 점수 갱신
@@ -204,7 +208,11 @@ export async function matchMaking(req, res, next) {
         where: { accountId: away.accountId },
         data: {
           //rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
-          rankScore: gameService.calculateElo(homeAccount.rankScore, awayLineup[0].account.rankScore, !isWin)
+          rankScore: gameService.calculateElo(
+            homeAccount.rankScore,
+            awayLineup[0].account.rankScore,
+            !isWin,
+          ),
         },
       });
       return game;
