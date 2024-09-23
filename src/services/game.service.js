@@ -163,6 +163,23 @@ class GameService {
       if (modifyStamina) player.stamina /= amount;
     }
   }
+
+
+  /**
+   * ELO 계산
+   * @param {Int} homeElo
+   * @param {Int} awayElo
+   * @param {Boolean} isWin
+   * @param {Int} kFactor
+   * @returns
+   * @author 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
+   */
+  async calculateElo(homeElo, awayElo, isWin, kFactor = 32) {
+    const expectedScore = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
+    const winFactor = isWin ? 1 : 0
+
+    return homeElo + kFactor * (winFactor - expectedScore);
+  }
 }
 
 const gameService = new GameService(prisma);

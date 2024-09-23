@@ -47,13 +47,14 @@ export async function matchMaking(req, res, next) {
     let awayLineup = [];
     let away;
     let cnt = 0;
+    let awayRankScore;
     while (awayLineup.length < 3) {
       away = awayPool[Math.floor(Math.random() * awayPool.length)];
 
       awayLineup = await prisma.lineup.findMany({
         where: { accountId: away.accountId },
         include: {
-          account: { select: { id: true } },
+          account: { select: { id: true, rankScore: true } },
           roster: { include: { player: true } }, // 선수 정보를 포함
         },
       });
@@ -194,14 +195,16 @@ export async function matchMaking(req, res, next) {
       const updateHomeScore = await tx.accounts.update({
         where: { accountId: accountId },
         data: {
-          rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
+          //rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
+          rankScore: gameService.calculateElo(homeAccount.rankScore, awayLineup[0].account.rankScore, isWin)
         },
       });
       // away 랭크 점수 갱신
       const updateAwayScore = await tx.accounts.update({
         where: { accountId: away.accountId },
         data: {
-          rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
+          //rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
+          rankScore: gameService.calculateElo(homeAccount.rankScore, awayLineup[0].account.rankScore, !isWin)
         },
       });
       return game;
