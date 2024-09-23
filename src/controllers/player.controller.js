@@ -263,7 +263,8 @@ export async function upgradePlayer(req, res, next) {
       select: { totalCash: true },
       orderBy: { createAt: 'desc' },
     });
-    if (!cashLog || cashLog.totalCash < UPGRADE_COST)
+    let totalCash = cashLog.totalCash;
+    if (!cashLog || totalCash < UPGRADE_COST)
       throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 강화대상 선수 보유 여부 확인
@@ -357,6 +358,16 @@ export async function upgradePlayer(req, res, next) {
             result = UPGRADE_RESULTS.FAILURE;
           }
         }
+
+        // 캐시 소모
+        await prisma.cashLog.create({
+          data: {
+            accountId: accountId,
+            totalCash: totalCash - UPGRADE_COST,
+            purpose: 'upgrade',
+            cashChange: -UPGRADE_COST,
+          },
+        });
 
         // 강화 재료 소모
         for (const materialId of materials) {
