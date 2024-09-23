@@ -11,12 +11,6 @@ class AccountService {
     AccountService.instance = this;
   }
 
-  /**
-   * 계정 검증
-   * @param { Int } accountId
-   * @param { Int } authAccountId
-   * @returns { Object } account
-   */
   async checkAccount(accountId, authAccountId) {
     const account = await prisma.accounts.findUnique({
       where: { accountId },
