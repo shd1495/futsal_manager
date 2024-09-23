@@ -78,3 +78,40 @@ export async function inquireCash(req, res, next) {
     next(error);
   }
 }
+
+/**
+ * 캐쉬 잔액 확인 로직
+ * @param {string} accountId
+ * @param {int} cashNeeded
+ */
+export async function checkCash(accountId, cashNeeded) {
+  const cashLog = await prisma.cashLog.findFirst({
+    where: { accountId: +accountId },
+    select: { totalCash: true },
+    orderBy: { createAt: 'desc' },
+  });
+  if (!cashLog || cashLog.totalCash < UPGRADE_COST) throw throwError('캐시 잔액이 부족합니다.', 402);
+}
+
+/**
+ * 캐쉬 소모 로직
+ * @param {string} accountId
+ * @param {int} amount
+ */
+export async function spendCash(accountId, amount) {
+  const cashLog = await prisma.cashLog.findFirst({
+    where: { accountId: +accountId },
+    select: { totalCash: true },
+    orderBy: { createAt: 'desc' },
+  });
+  const totalCash = cashLog.totalCash;
+
+  await prisma.cashLog.create({
+    data: {
+      accountId: +accountId,
+      totalCash: totalCash - amount,
+      purpose: 'upgrade',
+      cashChange: -amount,
+    },
+  });
+}
