@@ -80,29 +80,24 @@ export async function createLineup(req, res, next) {
     }
 
     // 팀 편성
-    for (let i = 0; i < rosterIds.length; i++) {
-      const rosterId = rosterIds[i];
-      const existRosterId = existRosterIds[i];
+    await prisma.$transaction(async (tx) => {
+      // 기존 편성 삭제
+      await tx.lineup.deleteMany({
+        where: { accountId: accountId },
+      });
 
-      // 기존 정보 업데이트
-      if (existRosterIds.length === 3) {
-        await prisma.lineup.update({
-          where: {
-            accountId,
-            rosterId: existRosterId,
-          },
-          data: { rosterId: rosterId },
-        });
-        // 첫 편성일 경우, 선수를 판매했을 경우 생성
-      } else if (existRosterIds.length < 3) {
-        await prisma.lineup.create({
+      // 편성 추가
+      const createLineup = rosterIds.map((rosterId) => {
+        return tx.lineup.create({
           data: {
-            accountId,
-            rosterId,
+            accountId: accountId,
+            rosterId: rosterId,
           },
         });
-      }
-    }
+      });
+
+      await Promise.all(createLineup);
+    });
 
     return res.status(201).json({ message: '팀 편성이 완료되었습니다.' });
   } catch (error) {

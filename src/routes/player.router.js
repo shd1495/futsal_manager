@@ -17,7 +17,7 @@ const router = express.Router();
 /**
  * 팀 편성 API
  */
-router.patch('/lineup/:accountId', authMiddleware, createLineup);
+router.post('/lineup/:accountId', authMiddleware, createLineup);
 
 /**
  * 선수 뽑기 API
