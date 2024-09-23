@@ -292,6 +292,19 @@ export async function upgradePlayer(req, res, next) {
 
     if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
 
+    // 라인업에 있는 선수 선택 불가능
+    const targetLineup = await prisma.roster.findFirst({
+      where: {
+        accountId: accountId,
+        rosterId: +targetId,
+      },
+      select: {
+        rosterId: true,
+      },
+    });
+
+    if (targetLineup.length > 0) throw throwError('강화할 선수를 라인업에서 먼저 빼주세요', 400);
+
     // 최대강화 도달 여부 확인
     let targetRank = targetRoster.rank;
     if (targetRank === PLAYER_RANKS.LEGENDARY)
@@ -317,6 +330,19 @@ export async function upgradePlayer(req, res, next) {
       // 강화재료로 사용할 선수 보유 여부 확인
       if (!materialRoster)
         throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
+
+      // 라인업에 있는 선수 선택 불가능
+      const materialLineup = await prisma.roster.findFirst({
+        where: {
+          accountId: accountId,
+          rosterId: +materialId,
+        },
+        select: {
+          rosterId: true,
+        },
+      });
+
+      if (materialLineup.length > 0) throw throwError('강화재료로 사용할 선수를 라인업에서 먼저 빼주세요', 400);
 
       // 강화 보너스 성공률 적용
       bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
