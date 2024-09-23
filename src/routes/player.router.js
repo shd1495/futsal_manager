@@ -2,6 +2,7 @@ import express from 'express';
 import {
   createLineup,
   pickupPlayer,
+  upgradePlayer,
   sellPlayer,
   getPlayers,
   buyToken,
@@ -22,6 +23,11 @@ router.patch('/lineup/:accountId', authMiddleware, createLineup);
  * 선수 뽑기 API
  */
 router.post('/pickup/:accountId', authMiddleware, pickupPlayer);
+
+/**
+ * 선수 강화 API
+ */
+router.patch('/upgrade/:accountId', authMiddleware, upgradePlayer);
 
 /**
  * 선수 판매 API

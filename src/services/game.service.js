@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma/index.js';
+import { UPGRADE_STAT_BONUSES } from '../utils/constants.js';
 
 class GameService {
   constructor(prisma) {
@@ -94,13 +95,25 @@ class GameService {
       stamina: 0,
     };
 
+    
     for (const lineupItem of lineup) {
       styles.push(lineupItem.roster.player.style);
+
+      // 기본 스탯
       stats.speed += lineupItem.roster.player.speed;
       stats.shootAccuracy += lineupItem.roster.player.shootAccuracy;
       stats.shootPower += lineupItem.roster.player.shootPower;
       stats.defense += lineupItem.roster.player.defense;
       stats.stamina += lineupItem.roster.player.stamina;
+
+      // 랭크 보정치 적용
+      let rank = lineupItem.roster.rank;
+      let bonus = UPGRADE_STAT_BONUSES.get(rank)
+      stats.speed *= bonus;
+      stats.shootAccuracy *= bonus;
+      stats.shootPower *= bonus;
+      stats.defense *= bonus;
+      stats.stamina *= bonus;
     }
 
     return { styles, stats };

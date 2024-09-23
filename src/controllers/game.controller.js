@@ -3,9 +3,9 @@ import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import gameService from '../services/game.service.js';
 import {
-  AVG_PLAYERS,
+  NUM_PLAYERS,
   RANDOM_RANGE,
-  SHOOT_CHANCE,
+  SHOOTABLE_DISTANCE,
   TEAM_COLOR_ADVANTAGE,
 } from '../utils/constants.js';
 
@@ -140,7 +140,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // home 골 찬스
-      if (ball >= SHOOT_CHANCE) {
+      if (ball >= SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((homeStats.shootAccuracy + homeStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -153,7 +153,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // away 골 찬스
-      if (ball <= -SHOOT_CHANCE) {
+      if (ball <= -SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((awayStats.shootAccuracy + awayStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
