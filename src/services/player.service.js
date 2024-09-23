@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma/index.js';
+import { UPGRADE_STAT_BONUSES } from '../utils/constants.js';
 
 class PlayerService {
   constructor(prisma) {
@@ -15,9 +16,12 @@ class PlayerService {
    * @param { Object } player
    * @returns { Int }
    */
-  async calculateValue(player) {
+  async calculateValue(player, rank = null) {
     const { speed, shootAccuracy, shootPower, defense, stamina } = player;
-
+    let bonus = 1;
+    if (rank) {
+      bonus = UPGRADE_STAT_BONUSES.get(rank);
+    }
     // 가중치 설정
     const accuracyWeight = 0.3;
     const powerWeight = 0.3;
@@ -33,7 +37,7 @@ class PlayerService {
       stamina * staminaWeight +
       defense * defenseWeight;
 
-    return baseValue;
+    return baseValue * bonus;
   }
   /**
    * 선수 가격 계산
