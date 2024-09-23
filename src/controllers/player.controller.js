@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import playerService from '../services/player.service.js';
+import { checkCash, spendCash } from './cash.controller.js';
 import {
   PICKUP_TYPE,
   PICKUP_AMOUNT,
@@ -266,13 +267,7 @@ export async function upgradePlayer(req, res, next) {
       throw throwError('동일한 선수를 중복해서 강화재료로 선택할 수 없습니다.', 400);
 
     // 캐시 잔액 확인
-    const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: accountId },
-      select: { totalCash: true },
-      orderBy: { createAt: 'desc' },
-    });
-    let totalCash = cashLog.totalCash;
-    if (!cashLog || totalCash < UPGRADE_COST) throw throwError('캐시 잔액이 부족합니다.', 402);
+    checkCash(accountId, UPGRADE_COST);
 
     // 강화대상 선수 보유 여부 확인
     const targetRoster = await prisma.roster.findFirst({
@@ -287,6 +282,19 @@ export async function upgradePlayer(req, res, next) {
     });
 
     if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
+
+    // 라인업에 있는 선수 선택 불가능
+    const targetLineup = await prisma.roster.findFirst({
+      where: {
+        accountId: accountId,
+        rosterId: +targetId,
+      },
+      select: {
+        rosterId: true,
+      },
+    });
+
+    if (targetLineup.length > 0) throw throwError('강화할 선수를 라인업에서 먼저 빼주세요', 400);
 
     // 최대강화 도달 여부 확인
     let targetRank = targetRoster.rank;
@@ -313,6 +321,19 @@ export async function upgradePlayer(req, res, next) {
       // 강화재료로 사용할 선수 보유 여부 확인
       if (!materialRoster)
         throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
+
+      // 라인업에 있는 선수 선택 불가능
+      const materialLineup = await prisma.roster.findFirst({
+        where: {
+          accountId: accountId,
+          rosterId: +materialId,
+        },
+        select: {
+          rosterId: true,
+        },
+      });
+
+      if (materialLineup.length > 0) throw throwError('강화재료로 사용할 선수를 라인업에서 먼저 빼주세요', 400);
 
       // 강화 보너스 성공률 적용
       bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
@@ -370,14 +391,7 @@ export async function upgradePlayer(req, res, next) {
         }
 
         // 캐시 소모
-        await prisma.cashLog.create({
-          data: {
-            accountId: accountId,
-            totalCash: totalCash - UPGRADE_COST,
-            purpose: 'upgrade',
-            cashChange: -UPGRADE_COST,
-          },
-        });
+        spendCash(accountId, UPGRADE_COST);
 
         // 강화 재료 소모
         for (const materialId of materials) {
