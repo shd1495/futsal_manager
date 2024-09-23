@@ -36,8 +36,8 @@ export async function matchMaking(req, res, next) {
       where: {
         accountId: { not: accountId },
         rankScore: {
-          gte: homeAccount.rankScore - 200, // 최소
-          lte: homeAccount.rankScore + 200, // 최대
+          gte: homeAccount.rankScore - 500, // 최소
+          lte: homeAccount.rankScore + 500, // 최대
         },
       },
     });
@@ -77,18 +77,10 @@ export async function matchMaking(req, res, next) {
     const isAwayStyle = gameService.getTeamStyle(awayStyle);
 
     // 내 팀 스탯 평균 계산
-    homeStats.speed /= homeLineup.length;
-    homeStats.shootAccuracy /= homeLineup.length;
-    homeStats.shootPower /= homeLineup.length;
-    homeStats.defense /= homeLineup.length;
-    homeStats.stamina /= homeLineup.length;
+    await gameService.modifyStats(homeStats, homeLineup.length, '/');
 
     // 상대팀 스탯 평균 계산
-    awayStats.speed /= awayLineup.length;
-    awayStats.shootAccuracy /= awayLineup.length;
-    awayStats.shootPower /= awayLineup.length;
-    awayStats.defense /= awayLineup.length;
-    awayStats.stamina /= awayLineup.length;
+    await gameService.modifyStats(awayStats, awayLineup.length, '/');
 
     // 팀 컬러 상성
     const advantageMap = {
@@ -99,19 +91,11 @@ export async function matchMaking(req, res, next) {
 
     // home 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
-      homeStats.speed *= TEAM_COLOR_ADVANTAGE;
-      homeStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
-      homeStats.shootPower *= TEAM_COLOR_ADVANTAGE;
-      homeStats.defense *= TEAM_COLOR_ADVANTAGE;
-      homeStats.stamina *= TEAM_COLOR_ADVANTAGE;
+      await gameService.modifyStats(homeStats, TEAM_COLOR_ADVANTAGE, '*');
     }
     // away 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
-      awayStats.speed *= TEAM_COLOR_ADVANTAGE;
-      awayStats.shootAccuracy *= TEAM_COLOR_ADVANTAGE;
-      awayStats.shootPower *= TEAM_COLOR_ADVANTAGE;
-      awayStats.defense *= TEAM_COLOR_ADVANTAGE;
-      awayStats.stamina *= TEAM_COLOR_ADVANTAGE;
+      await gameService.modifyStats(awayStats, TEAM_COLOR_ADVANTAGE, '*');
     }
 
     let ball = 0;
@@ -119,9 +103,9 @@ export async function matchMaking(req, res, next) {
     const gameLog = [];
     for (let i = 0; i < 50; i++) {
       // home 축구력?
-      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / AVG_PLAYERS;
+      let home = (homeStats.speed + homeStats.defense + homeStats.stamina) / NUM_PLAYERS;
       // away 축구력?
-      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / AVG_PLAYERS;
+      let away = (awayStats.speed + awayStats.defense + awayStats.stamina) / NUM_PLAYERS;
 
       // 스탯 차이에 따라 공 이동 거리 계산 (양 팀 간 스탯 차이의 비율 사용)
       const advantage = home - away;
@@ -132,10 +116,12 @@ export async function matchMaking(req, res, next) {
       );
       ball += randomFactor;
       if (randomFactor >= 0) {
-        gameLog.push(`${i}페이즈 : ${homeAccount.id} 팀이 공을 ${randomFactor}m 전진했습니다. `);
+        gameLog.push(
+          `${i}페이즈 : ${homeAccount.id} 팀이 공을 ${randomFactor}m 전진했습니다. 현재 공 위치: ${ball}`,
+        );
       } else {
         gameLog.push(
-          `${i}페이즈 : ${awayLineup[0].account.id} 팀이 공을 ${randomFactor}m 전진했습니다.`,
+          `${i}페이즈 : ${awayLineup[0].account.id} 팀이 공을 ${randomFactor}m 전진했습니다. 현재 공 위치: ${ball}`,
         );
       }
 
@@ -169,30 +155,18 @@ export async function matchMaking(req, res, next) {
       homeStats.stamina *= 0.97;
       if (i % 10 == 0) {
         if (homeStats.stamina < 50) {
-          homeStats.shootAccuracy *= 0.9;
-          homeStats.shootPower *= 0.9;
-          homeStats.speed *= 0.9;
-          homeStats.defense *= 0.9;
+          await gameService.modifyStats(homeStats, 0.9, '*', false);
         } else if (homeStats.stamina < 25) {
-          homeStats.shootAccuracy *= 0.8;
-          homeStats.shootPower *= 0.8;
-          homeStats.speed *= 0.8;
-          homeStats.defense *= 0.8;
+          await gameService.modifyStats(homeStats, 0.9, '*', false);
         }
       }
 
       awayStats.stamina *= 0.97;
       if (i % 10 == 0) {
         if (awayStats.stamina < 50) {
-          awayStats.shootAccuracy *= 0.9;
-          awayStats.shootPower *= 0.9;
-          awayStats.speed *= 0.9;
-          awayStats.defense *= 0.9;
+          await gameService.modifyStats(awayStats, 0.9, '*', false);
         } else if (awayStats.stamina < 25) {
-          awayStats.shootAccuracy *= 0.8;
-          awayStats.shootPower *= 0.8;
-          awayStats.speed *= 0.8;
-          awayStats.defense *= 0.8;
+          await gameService.modifyStats(awayStats, 0.8, '*', false);
         }
       }
     }
@@ -203,9 +177,8 @@ export async function matchMaking(req, res, next) {
 
     // 무승부일 경우 승부차기
     if (goal[0] === goal[1]) {
-      isWin = gameService.penaltyKick(homeLineup, awayLineup);
+      isWin = await gameService.penaltyKick(homeLineup, awayLineup);
     }
-
     const game = await prisma.$transaction(async (tx) => {
       // 경기 결과 등록
       const game = await tx.game.create({

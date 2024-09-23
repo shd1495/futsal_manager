@@ -95,7 +95,6 @@ class GameService {
       stamina: 0,
     };
 
-    
     for (const lineupItem of lineup) {
       styles.push(lineupItem.roster.player.style);
 
@@ -108,7 +107,7 @@ class GameService {
 
       // 랭크 보정치 적용
       let rank = lineupItem.roster.rank;
-      let bonus = UPGRADE_STAT_BONUSES.get(rank)
+      let bonus = UPGRADE_STAT_BONUSES.get(rank);
       stats.speed *= bonus;
       stats.shootAccuracy *= bonus;
       stats.shootPower *= bonus;
@@ -134,6 +133,35 @@ class GameService {
     }
 
     return teamStyle;
+  }
+
+  /**
+   * 스탯 설정
+   * @param {Object} player
+   * @param {float} amount
+   * @param {String} operator
+   */
+  async modifyStats(player, amount, operator, modifyStamina = true) {
+    if (operator === '+') {
+      player.speed += amount;
+      player.shootAccuracy += amount;
+      player.shootPower += amount;
+      player.defense += amount;
+      if (modifyStamina) player.stamina += amount;
+    } else if (operator === '*') {
+      player.speed *= amount;
+      player.shootAccuracy *= amount;
+      player.shootPower *= amount;
+      player.defense *= amount;
+      if (modifyStamina) player.stamina *= amount;
+    } else if (operator === '/') {
+      if (amount === 0) throw throwError('잘못된 요청입니다.', 400);
+      player.speed /= amount;
+      player.shootAccuracy /= amount;
+      player.shootPower /= amount;
+      player.defense /= amount;
+      if (modifyStamina) player.stamina /= amount;
+    }
   }
 }
 
