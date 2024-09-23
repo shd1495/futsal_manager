@@ -132,7 +132,7 @@ export async function inquireAccount(req, res, next) {
   try {
     const account = await accountService.checkAccount(accountId, authAccountId);
 
-    const accountInfo = { name: account.name, rankScore: account.rankScore };
+    const accountInfo = { id: account.id, name: account.name, rankScore: account.rankScore };
 
     res.status(200).json({ accountInfo });
   } catch (error) {
