@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import playerService from '../services/player.service.js';
-import { checkCash, spendCash } from './cash.controller.js';
+import { checkCash, createCashLog } from './cash.controller.js';
 import {
   PICKUP_TYPE,
   PICKUP_AMOUNT,
@@ -267,7 +267,7 @@ export async function upgradePlayer(req, res, next) {
       throw throwError('동일한 선수를 중복해서 강화재료로 선택할 수 없습니다.', 400);
 
     // 캐시 잔액 확인
-    checkCash(accountId, UPGRADE_COST);
+    await checkCash(prisma, accountId, UPGRADE_COST);
 
     // 강화대상 선수 보유 여부 확인
     const targetRoster = await prisma.roster.findFirst({
@@ -333,7 +333,8 @@ export async function upgradePlayer(req, res, next) {
         },
       });
 
-      if (materialLineup.length > 0) throw throwError('강화재료로 사용할 선수를 라인업에서 먼저 빼주세요', 400);
+      if (materialLineup.length > 0)
+        throw throwError('강화재료로 사용할 선수를 라인업에서 먼저 빼주세요', 400);
 
       // 강화 보너스 성공률 적용
       bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
@@ -391,7 +392,8 @@ export async function upgradePlayer(req, res, next) {
         }
 
         // 캐시 소모
-        spendCash(accountId, UPGRADE_COST);
+        const purpose = 'upgrade';
+        await createCashLog(tx, purpose, accountId, -UPGRADE_COST);
 
         // 강화 재료 소모
         for (const materialId of materials) {
@@ -458,14 +460,8 @@ export async function sellPlayer(req, res, next) {
 
     const result = await prisma.$transaction(async (tx) => {
       // 캐쉬 변동 내역
-      const result = await tx.cashLog.create({
-        data: {
-          accountId: accountId,
-          totalCash: cashLog.totalCash + price,
-          purpose: 'sell',
-          cashChange: price,
-        },
-      });
+      const purpose = 'sell';
+      const result = await createCashLog(tx, purpose, accountId, price);
 
       // 선수 판매
       await tx.roster.delete({
@@ -474,12 +470,10 @@ export async function sellPlayer(req, res, next) {
       return result;
     });
 
-    return res
-      .status(201)
-      .json({
-        message: `${roster.player.playerName} 선수를 판매했습니다.`,
-        totalCash: result.totalCash,
-      });
+    return res.status(201).json({
+      message: `${roster.player.playerName} 선수를 판매했습니다.`,
+      totalCash: result,
+    });
   } catch (error) {
     next(error);
   }
@@ -553,12 +547,8 @@ export async function buyToken(req, res, next) {
     if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     // 잔액 확인
-    const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: accountId },
-      orderBy: { createAt: 'desc' },
-    });
     const cashUsage = PICKUP_PRICE[pickupType] * PICKUP_AMOUNT[pickupAmount];
-    if (!cashLog || cashLog.totalCash < cashUsage) throw throwError('캐시 잔액이 부족합니다.', 402);
+    await checkCash(prisma, accountId, cashUsage);
 
     const records = Array.from({ length: PICKUP_AMOUNT[pickupAmount] }, () => ({
       accountId: accountId,
@@ -572,14 +562,8 @@ export async function buyToken(req, res, next) {
       });
 
       // 캐쉬 반영
-      await tx.cashLog.create({
-        data: {
-          accountId: accountId,
-          totalCash: cashLog.totalCash - cashUsage,
-          purpose: 'token',
-          cashChange: -cashUsage,
-        },
-      });
+      const purpose = 'token';
+      await createCashLog(tx, purpose, accountId, -cashUsage);
     });
 
     return res.status(201).json({

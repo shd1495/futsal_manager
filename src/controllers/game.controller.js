@@ -29,7 +29,7 @@ export async function matchMaking(req, res, next) {
       where: { accountId },
       include: { roster: { include: { player: true } } }, // 선수 정보를 포함
     });
-    if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.');
+    if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.', 400);
 
     // 상대 목록
     const awayPool = await prisma.accounts.findMany({
