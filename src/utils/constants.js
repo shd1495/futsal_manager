@@ -53,8 +53,8 @@ export const UPGRADE_SUCCESS_RATES = new Map([
     [PLAYER_RANKS.NORMAL, 0.75],    // normal -> magic
     [PLAYER_RANKS.MAGIC, 0.50],     // magic -> rare
     [PLAYER_RANKS.RARE, 0.25],      // rare -> unique
-    [PLAYER_RANKS.UNIQUE, 0.75],    // unique -> epic
-    [PLAYER_RANKS.EPIC, 0.75],      // epic -> legendary
+    [PLAYER_RANKS.UNIQUE, 0.05],    // unique -> epic
+    [PLAYER_RANKS.EPIC, 0.01],      // epic -> legendary
 ]);
 
 /**
