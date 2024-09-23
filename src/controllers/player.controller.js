@@ -242,12 +242,13 @@ export async function upgradePlayer(req, res, next) {
     // 파라미터 무결성 확인
     if (!targetId || isNaN(targetId)) throw throwError('올바르지 않은 targetId 형식입니다.', 400);
     if (!materials) materials = []; // 빈 강화재료 input 형식 통일
+    if (!Array.isArray(materials)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
     for (const material of materials) {
       if (!material || isNaN(+material)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
     }
 
     // 최대 강화재료 수 초과 여부 확인
-    if (materials.length > MAX_UPGRADE_MATERIALS) throw throwthrowError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
+    if (materials.length > MAX_UPGRADE_MATERIALS) throw throwError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
 
     // 캐시 잔액 확인
     const cashLog = await prisma.cashLog.findFirst({
@@ -259,7 +260,7 @@ export async function upgradePlayer(req, res, next) {
       throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 강화대상 선수 보유 여부 확인
-    const targetRoster = await prisma.roster.findMany({
+    const targetRoster = await prisma.roster.findFirst({
       where: { 
         accountId : accountId, 
         rosterId : targetId,
@@ -270,7 +271,7 @@ export async function upgradePlayer(req, res, next) {
       },
     });
 
-    if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 400);
+    if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
 
     // 최대강화 도달 여부 확인
     let targetRank = targetRoster.rank;
@@ -307,9 +308,9 @@ export async function upgradePlayer(req, res, next) {
         let successRandom = Math.random();
 
         // 강화 성공시:
-        result = UPGRADE_RESULTS.SUCCESS;
         if (successRate > successRandom) {
           // 선수 강화
+          result = UPGRADE_RESULTS.SUCCESS;
           await tx.roster.update({
             data: {
               rank: NEXT_RANK.get(targetRank)
@@ -324,16 +325,16 @@ export async function upgradePlayer(req, res, next) {
           // 강화 페널티 판정
           let penaltyRandom = Math.random();
           // 파괴
-          result = UPGRADE_RESULTS.DESTROYED;
           if (DESTRUCTION_RATES.get(targetRank) > penaltyRandom) {  
-            await tx.roster.deleteMany({
+            result = UPGRADE_RESULTS.DESTROYED;
+            await tx.roster.delete({
               where: {
                 rosterId : targetId,
               }
             });
           // 등급 하락
-          result = UPGRADE_RESULTS.DOWNGRADE;
           } else if (DOWNGRADE_RATES.get(targetRank) > penaltyRandom) {  
+            result = UPGRADE_RESULTS.DOWNGRADE;
             await tx.roster.update({
               data: {
                 rank: PREV_RANK.get(targetRank)
@@ -350,7 +351,7 @@ export async function upgradePlayer(req, res, next) {
 
         // 강화 재료 소모
         for (const materialId of materials) {
-          await prisma.roster.deleteMany({
+          await prisma.roster.delete({
             where: { 
               rosterId : +materialId,
             },

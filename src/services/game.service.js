@@ -108,11 +108,12 @@ class GameService {
 
       // 랭크 보정치 적용
       let rank = lineupItem.roster.rank;
-      stats.speed *= UPGRADE_STAT_BONUSES.get(rank);
-      stats.shootAccuracy *= UPGRADE_STAT_BONUSES.get(rank);
-      stats.shootPower *= UPGRADE_STAT_BONUSES.get(rank);
-      stats.defense *= UPGRADE_STAT_BONUSES.get(rank);
-      stats.stamina *= UPGRADE_STAT_BONUSES.get(rank);
+      let bonus = UPGRADE_STAT_BONUSES.get(rank)
+      stats.speed *= bonus;
+      stats.shootAccuracy *= bonus;
+      stats.shootPower *= bonus;
+      stats.defense *= bonus;
+      stats.stamina *= bonus;
     }
 
     return { styles, stats };
