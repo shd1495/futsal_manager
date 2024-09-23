@@ -288,6 +288,7 @@ export async function upgradePlayer(req, res, next) {
 
     // 기본 강화 성공률
     let successRate = UPGRADE_SUCCESS_RATES.get(targetRank);
+    let bonusRate = 0;
 
     // 강화재료 적용
     for (const materialId of materials) {
@@ -307,9 +308,9 @@ export async function upgradePlayer(req, res, next) {
         throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
 
       // 강화 보너스 성공률 적용
-      successRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
+      bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
     }
-    successRate = Math.min(successRate, 1);
+    successRate = Math.min(successRate * (1 + bonusRate), 1);
 
     // 강화 진행
     let result = null;

@@ -60,7 +60,7 @@ export const UPGRADE_SUCCESS_RATES = new Map([
 /**
  * 강화재료 사용시 성공확률 증가량
  * @key 강화재료 등급
- * @value 성공확률 증가량
+ * @value 성공확률 증가량 (추가확률끼리는 합연산, 최종적용은 곱연산)
  */
 export const UPGRADE_MATERIAL_BONUSES = new Map([
   [PLAYER_RANKS.NORMAL, 0.1],
