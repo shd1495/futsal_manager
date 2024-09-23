@@ -301,11 +301,9 @@ export async function upgradePlayer(req, res, next) {
           rank: true,
         },
       });
-      console.log(materialRoster);
-      console.log(materialRoster.rank);
 
       // 강화재료로 사용할 선수 보유 여부 확인
-      if (materialRoster.length == materials.length)
+      if (!materialRoster || materialRoster.length !== materials.length)
         throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
 
       // 강화 보너스 성공률 적용
