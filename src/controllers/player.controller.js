@@ -1,11 +1,17 @@
 import { prisma } from '../utils/prisma/index.js';
-import { Prisma } from "@prisma/client";
+import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
 import playerService from '../services/player.service.js';
-import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE, PLAYER_RANKS, UPGRADE_RESULTS, } from '../utils/enum.js';
-import { 
-  UPGRADE_COST, 
+import {
+  PICKUP_TYPE,
+  PICKUP_AMOUNT,
+  PICKUP_PRICE,
+  PLAYER_RANKS,
+  UPGRADE_RESULTS,
+} from '../utils/enum.js';
+import {
+  UPGRADE_COST,
   MAX_UPGRADE_MATERIALS,
   UPGRADE_SUCCESS_RATES,
   UPGRADE_MATERIAL_BONUSES,
@@ -232,23 +238,24 @@ export async function pickupPlayer(req, res, next) {
 export async function upgradePlayer(req, res, next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
-  const targetId = +req.body.targedId; // 강화할 선수 rosterId
-  const materials = req.body.materials; // 강화재료로 소모할 선수들
+  const { targetId, materials } = req.body; // 강화할 선수 rosterId // 강화재료로 소모할 선수들
 
   try {
     // 계정 인증+인가
     await accountService.checkAccount(accountId, authAccountId);
 
     // 파라미터 무결성 확인
-    if (!targetId || isNaN(targetId)) throw throwError('올바르지 않은 targetId 형식입니다.', 400);
+    if (!+targetId || isNaN(+targetId)) throw throwError('올바르지 않은 targetId 형식입니다.', 400);
     if (!materials) materials = []; // 빈 강화재료 input 형식 통일
     if (!Array.isArray(materials)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
     for (const material of materials) {
-      if (!material || isNaN(+material)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
+      if (!material || isNaN(material))
+        throw throwError('올바르지 않은 materials 형식입니다.', 400);
     }
 
     // 최대 강화재료 수 초과 여부 확인
-    if (materials.length > MAX_UPGRADE_MATERIALS) throw throwError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
+    if (materials.length > MAX_UPGRADE_MATERIALS)
+      throw throwError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
 
     // 캐시 잔액 확인
     const cashLog = await prisma.cashLog.findFirst({
@@ -261,9 +268,9 @@ export async function upgradePlayer(req, res, next) {
 
     // 강화대상 선수 보유 여부 확인
     const targetRoster = await prisma.roster.findFirst({
-      where: { 
-        accountId : accountId, 
-        rosterId : targetId,
+      where: {
+        accountId: accountId,
+        rosterId: +targetId,
       },
       select: {
         rosterId: true,
@@ -275,7 +282,8 @@ export async function upgradePlayer(req, res, next) {
 
     // 최대강화 도달 여부 확인
     let targetRank = targetRoster.rank;
-    if (targetRank === PLAYER_RANKS.LEGENDARY) throw throwError('이미 최대로 강화된 선수입니다.', 400);
+    if (targetRank === PLAYER_RANKS.LEGENDARY)
+      throw throwError('이미 최대로 강화된 선수입니다.', 400);
 
     // 기본 강화 성공률
     let successRate = UPGRADE_SUCCESS_RATES.get(targetRank);
@@ -283,9 +291,9 @@ export async function upgradePlayer(req, res, next) {
     // 강화재료 적용
     for (const materialId of materials) {
       const materialRoster = await prisma.roster.findMany({
-        where: { 
-          accountId : accountId, 
-          rosterId : +materialId,
+        where: {
+          accountId: accountId,
+          rosterId: +materialId,
         },
         select: {
           rosterId: true,
@@ -294,7 +302,8 @@ export async function upgradePlayer(req, res, next) {
       });
 
       // 선수 보유 여부 확인
-      if (!materialRoster) throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
+      if (!materialRoster)
+        throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
 
       // 강화 보너스 성공률 적용
       successRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
@@ -313,37 +322,37 @@ export async function upgradePlayer(req, res, next) {
           result = UPGRADE_RESULTS.SUCCESS;
           await tx.roster.update({
             data: {
-              rank: NEXT_RANK.get(targetRank)
+              rank: NEXT_RANK.get(targetRank),
             },
             where: {
-              rosterId : targetId,
-            }
+              rosterId: +targetId,
+            },
           });
 
-        // 강화 실패시:
+          // 강화 실패시:
         } else {
           // 강화 페널티 판정
           let penaltyRandom = Math.random();
           // 파괴
-          if (DESTRUCTION_RATES.get(targetRank) > penaltyRandom) {  
+          if (DESTRUCTION_RATES.get(targetRank) > penaltyRandom) {
             result = UPGRADE_RESULTS.DESTROYED;
             await tx.roster.delete({
               where: {
-                rosterId : targetId,
-              }
+                rosterId: +targetId,
+              },
             });
-          // 등급 하락
-          } else if (DOWNGRADE_RATES.get(targetRank) > penaltyRandom) {  
+            // 등급 하락
+          } else if (DOWNGRADE_RATES.get(targetRank) > penaltyRandom) {
             result = UPGRADE_RESULTS.DOWNGRADE;
             await tx.roster.update({
               data: {
-                rank: PREV_RANK.get(targetRank)
+                rank: PREV_RANK.get(targetRank),
               },
               where: {
-                rosterId : targetId,
-              }
+                rosterId: +targetId,
+              },
             });
-          // 페널티 없음
+            // 페널티 없음
           } else {
             result = UPGRADE_RESULTS.FAILURE;
           }
@@ -352,8 +361,8 @@ export async function upgradePlayer(req, res, next) {
         // 강화 재료 소모
         for (const materialId of materials) {
           await prisma.roster.delete({
-            where: { 
-              rosterId : +materialId,
+            where: {
+              rosterId: +materialId,
             },
           });
         }
