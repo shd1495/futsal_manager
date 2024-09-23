@@ -264,8 +264,7 @@ export async function upgradePlayer(req, res, next) {
       orderBy: { createAt: 'desc' },
     });
     let totalCash = cashLog.totalCash;
-    if (!cashLog || totalCash < UPGRADE_COST)
-      throw throwError('캐시 잔액이 부족합니다.', 402);
+    if (!cashLog || totalCash < UPGRADE_COST) throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 강화대상 선수 보유 여부 확인
     const targetRoster = await prisma.roster.findFirst({
@@ -279,7 +278,7 @@ export async function upgradePlayer(req, res, next) {
       },
     });
 
-    if (!targetRoster || targetRoster.length != 1) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
+    if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
 
     // 최대강화 도달 여부 확인
     let targetRank = targetRoster.rank;
@@ -301,13 +300,16 @@ export async function upgradePlayer(req, res, next) {
           rank: true,
         },
       });
+      console.log(materialRoster);
+      console.log(materialRoster.rank);
 
       // 강화재료로 사용할 선수 보유 여부 확인
-      if (!materialRoster || materialRoster.length != 1)
+      if (materialRoster.length == materials.length)
         throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
 
       // 강화 보너스 성공률 적용
       successRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
+      console.log(successRate);
     }
     successRate = Math.min(successRate, 1);
 
