@@ -182,22 +182,30 @@ export async function pickupPlayer(req, res, next) {
           // 뽑기
           if (PICKUP_TYPE[pickupType] == 'top_100') {
             let random = Math.random() * 1e5; // 0 ~ 100000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           } else if (PICKUP_TYPE[pickupType] == 'top_500') {
             let random = Math.random() * (5 * 1e5); // 0 ~ 500000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           } else {
-            let random = Math.random() * 1e7; // 0 ~ 10000000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+            let random = Math.random() * 1e6; // 0 ~ 1000000
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           }
 
           await tx.pickupToken.deleteMany({
@@ -248,6 +256,7 @@ export async function upgradePlayer(req, res, next) {
     if (!+targetId || isNaN(+targetId)) throw throwError('올바르지 않은 targetId 형식입니다.', 400);
     if (!materials) materials = []; // 빈 강화재료 input 형식 통일
     if (!Array.isArray(materials)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
+
     for (const material of materials) {
       if (!material || isNaN(material))
         throw throwError('올바르지 않은 materials 형식입니다.', 400);
@@ -308,8 +317,10 @@ export async function upgradePlayer(req, res, next) {
 
       // 강화 보너스 성공률 적용
       bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
+      console.log(bonusRate);
     }
     successRate = Math.min(successRate * (1 + bonusRate), 1);
+    console.log(successRate);
 
     // 강화 진행
     let result = null;
