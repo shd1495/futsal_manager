@@ -589,7 +589,7 @@ export async function getAllPlayers(req, res, next) {
  * @param {*} res
  * @param {*} next
  */
-export async function getLinenup(req, res, next) {
+export async function getLineup(req, res, next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
 
