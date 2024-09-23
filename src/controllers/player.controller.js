@@ -266,6 +266,9 @@ export async function upgradePlayer(req, res, next) {
     if (materials.length > MAX_UPGRADE_MATERIALS)
       throw throwError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
 
+    let materialSet = new Set(materials);
+    if (materials.length != materialSet.size) throwError('동일한 선수를 중복해서 강화재료로 선택할 수 없습니다.', 400);
+
     // 캐시 잔액 확인
     const cashLog = await prisma.cashLog.findFirst({
       where: { accountId: accountId },
