@@ -49,12 +49,12 @@ export const UPGRADE_STAT_BONUSES = new Map([
  * @key 현재 등급
  * @value 성공 확률
  */
-export const UPGRADE_SUCCESS_RATES = new Map([
-  [PLAYER_RANKS.NORMAL, 0.75], // normal -> magic
-  [PLAYER_RANKS.MAGIC, 0.5], // magic -> rare
-  [PLAYER_RANKS.RARE, 0.25], // rare -> unique
-  [PLAYER_RANKS.UNIQUE, 0.05], // unique -> epic
-  [PLAYER_RANKS.EPIC, 0.01], // epic -> legendary
+export const UPGRADE_SUCCESS_RATES = new Map([ 
+    [PLAYER_RANKS.NORMAL, 0.75],    // normal -> magic
+    [PLAYER_RANKS.MAGIC, 0.50],     // magic -> rare
+    [PLAYER_RANKS.RARE, 0.25],      // rare -> unique
+    [PLAYER_RANKS.UNIQUE, 0.05],    // unique -> epic
+    [PLAYER_RANKS.EPIC, 0.01],      // epic -> legendary
 ]);
 
 /**
