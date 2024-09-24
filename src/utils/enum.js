@@ -14,19 +14,3 @@ export const PICKUP_PRICE = Object.freeze({
   TOP_500: 3300,
   TOP_100: 4900,
 });
-
-export const PLAYER_RANKS = Object.freeze({
-  NORMAL: 'normal',
-  MAGIC: 'magic',
-  RARE: 'rare',
-  UNIQUE: 'unique',
-  EPIC: 'epic',
-  LEGENDARY: 'legendary',
-});
-
-export const UPGRADE_RESULTS = Object.freeze({
-  SUCCESS: 'success',
-  FAILURE: 'failure',
-  DOWNGRADE: 'downgrade',
-  DESTROYED: `destroyed`,
-});

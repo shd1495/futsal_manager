@@ -164,7 +164,6 @@ class GameService {
     }
   }
 
-
   /**
    * ELO 계산
    * @param {Int} homeElo
@@ -176,7 +175,7 @@ class GameService {
    */
   async calculateElo(homeElo, awayElo, isWin, kFactor = 32) {
     const expectedScore = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
-    const winFactor = isWin ? 1 : 0
+    const winFactor = isWin ? 1 : 0;
 
     return homeElo + kFactor * (winFactor - expectedScore);
   }
