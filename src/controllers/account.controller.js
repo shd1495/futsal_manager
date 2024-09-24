@@ -202,7 +202,7 @@ export async function remainingToken(req, res, next) {
     });
 
     return res.status(200).json({
-      all: AllPickupToken.length || 0,
+      ALL: AllPickupToken.length || 0,
       TOP_100: top100PickupToken.length || 0,
       TOP_500: top500PickupToken.length || 0,
     });
