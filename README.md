@@ -14,7 +14,7 @@
 ## 실행 방법
 
 - 서버 - yarn run start / pm2 start src/app.js
-- 기능 - shd1495.store:3020/api/url
+- 기능 - shd1495.store:3001/api/url
 
 ## 구현한 기능
 
@@ -305,6 +305,15 @@ https://www.notion.so/teamsparta/3b4d6d8385754bf98799c1119d65266a?v=adef0bb8e88f
     - 수비는 각 팀에서 수비력이 가장 높은 선수가 담당
 
     - 3라운드 이후 승부차기의 득점이 더 많은 팀이 승리
-  ```
 
-## 어려웠던 점
+   10. 랭크 점수 계산
+    - 승리 한 팀과 패배 한 팀이 ELO 레이팅 로직으로 랭크 점수를 획득하고 잃는다
+    async calculateElo(homeElo, awayElo, isWin, kFactor = 32) {
+      const expectedScore = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
+      const winFactor = isWin ? 1 : 0
+  
+      return homeElo + kFactor * (winFactor - expectedScore);
+    }
+
+    - 랭크 점수가 높은 쪽이 승리시 적은 점수를 획득하고 패배시 많은 점수를 잃으며 낮은 쪽은 반대
+  ```
