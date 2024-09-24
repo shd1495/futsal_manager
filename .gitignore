@@ -2,5 +2,3 @@ node_modules
 # Keep environment variables out of version control
 .env
 .prettierrc
-# 현재 프로젝트에서 쓰이지 않는 코드
-updatePlayers.js 
