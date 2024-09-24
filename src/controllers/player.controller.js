@@ -696,11 +696,11 @@ export async function rosterPl(req, res, next) {
 
     const result = {
       playerName: rosterPlayer.player.playerName,
-      speed: rosterPlayer.player.speed * bonus,
-      shootAccuracy: rosterPlayer.player.shootAccuracy * bonus,
-      shootPower: rosterPlayer.player.shootPower * bonus,
-      defense: rosterPlayer.player.defense * bonus,
-      stamina: rosterPlayer.player.stamina * bonus,
+      speed: Math.round(rosterPlayer.player.speed * bonus),
+      shootAccuracy: Math.round(rosterPlayer.player.shootAccuracy * bonus),
+      shootPower: Math.round(rosterPlayer.player.shootPower * bonus),
+      defense: Math.round(rosterPlayer.player.defense * bonus),
+      stamina: Math.round(rosterPlayer.player.stamina * bonus),
       style: rosterPlayer.player.style,
       price: price,
       rank: rosterPlayer.rank,
