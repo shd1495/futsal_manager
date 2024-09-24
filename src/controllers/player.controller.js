@@ -14,6 +14,7 @@ import {
 import {
   UPGRADE_COST,
   MAX_UPGRADE_MATERIALS,
+  UPGRADE_STAT_BONUSES,
   UPGRADE_SUCCESS_RATES,
   UPGRADE_MATERIAL_BONUSES,
   DOWNGRADE_RATES,
@@ -691,13 +692,15 @@ export async function rosterPl(req, res, next) {
     );
 
     // 데이터 가공
+    let bonus = UPGRADE_STAT_BONUSES.get(rosterPlayer.rank);
+
     const result = {
       playerName: rosterPlayer.player.playerName,
-      speed: rosterPlayer.player.speed,
-      shootAccuracy: rosterPlayer.player.shootAccuracy,
-      shootPower: rosterPlayer.player.shootPower,
-      defense: rosterPlayer.player.defense,
-      stamina: rosterPlayer.player.stamina,
+      speed: rosterPlayer.player.speed * bonus,
+      shootAccuracy: rosterPlayer.player.shootAccuracy * bonus,
+      shootPower: rosterPlayer.player.shootPower * bonus,
+      defense: rosterPlayer.player.defense * bonus,
+      stamina: rosterPlayer.player.stamina * bonus,
       style: rosterPlayer.player.style,
       price: price,
       rank: rosterPlayer.rank,
