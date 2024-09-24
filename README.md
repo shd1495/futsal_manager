@@ -1,4 +1,5 @@
 # futsal_manager
+![img](https://github.com/user-attachments/assets/ee2ac2e9-b288-4fda-b15f-ea0239fc7b34)
 ## 기술 스택
 - Node.js
 - Express.js
@@ -36,7 +37,7 @@
 ## API 명세서
 https://www.notion.so/teamsparta/3b4d6d8385754bf98799c1119d65266a?v=adef0bb8e88f4dc1840fe3d95687c5f4
 ## ERD
-![스키마1](https://github.com/user-attachments/assets/004f3ff1-0abe-441d-9376-715cdfc58ded)
+![스키마 최종](https://github.com/user-attachments/assets/adb260e6-59ce-4755-bd9e-90e5a5b88e5c)
 
 ## 기능 설명
 ### 계정
