@@ -196,7 +196,7 @@ export async function matchMaking(req, res, next) {
         where: { accountId: accountId },
         data: {
           //rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
-          rankScore: gameService.calculateElo(
+          rankScore: await gameService.calculateElo(
             homeAccount.rankScore,
             awayLineup[0].account.rankScore,
             isWin,
@@ -208,7 +208,7 @@ export async function matchMaking(req, res, next) {
         where: { accountId: away.accountId },
         data: {
           //rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
-          rankScore: gameService.calculateElo(
+          rankScore: await gameService.calculateElo(
             homeAccount.rankScore,
             awayLineup[0].account.rankScore,
             !isWin,
