@@ -21,31 +21,13 @@ export async function chargeCash(req, res, next) {
     // 충전 금액이 유효한지 확인 (0 이상이어야 함)
     if (amount <= 0) throw throwError('충전 금액은 0보다 커야 합니다.', 400);
 
-    // 가장 최근 캐쉬 변동 내역 조회 (이전 총 캐쉬를 확인하기 위함)
-    const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: accountId },
-      orderBy: { createAt: 'desc' },
-    });
-
-    // 기존 캐쉬 값이 없으면 0으로 초기화
-    const currentCash = cashLog ? cashLog.totalCash : 0;
-
-    // 충전 후 총 캐쉬 계산
-    const updatedCash = currentCash + amount;
-
     // 캐쉬 충전 로그 기록 (계정 테이블은 업데이트하지 않음)
-    const result = await prisma.cashLog.create({
-      data: {
-        accountId: accountId,
-        totalCash: updatedCash,
-        purpose: 'charge',
-        cashChange: amount,
-      },
-    });
+    const purpose = 'charge';
+    const result = await createCashLog(prisma, purpose, accountId, amount);
 
     return res.status(201).json({
       message: '캐쉬 충전에 성공했습니다.',
-      cash: result.totalCash, // 충전 후 총 캐쉬 금액
+      cash: result, // 충전 후 총 캐쉬 금액
     });
   } catch (error) {
     next(error); // 에러 핸들링 미들웨어로 넘기기
@@ -77,4 +59,43 @@ export async function inquireCash(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+/**
+ * 캐쉬 잔액 확인 로직
+ * @param {string} accountId
+ * @param {int} cashNeeded
+ */
+export async function checkCash(prisma, accountId, cashNeeded) {
+  const cashLog = await prisma.cashLog.findFirst({
+    where: { accountId: +accountId },
+    select: { totalCash: true },
+    orderBy: { createAt: 'desc' },
+  });
+  if (!cashLog || cashLog.totalCash < cashNeeded) throw throwError('캐시 잔액이 부족합니다.', 402);
+}
+
+/**
+ * 캐쉬 소모 로직
+ * @param {string} accountId
+ * @param {int} amount
+ */
+export async function createCashLog(prisma, purpose, accountId, amount) {
+  const cashLog = await prisma.cashLog.findFirst({
+    where: { accountId: +accountId },
+    select: { totalCash: true },
+    orderBy: { createAt: 'desc' },
+  });
+  const totalCash = cashLog.totalCash;
+
+  const result = await prisma.cashLog.create({
+    data: {
+      accountId: +accountId,
+      totalCash: totalCash + amount,
+      purpose: purpose,
+      cashChange: amount,
+    },
+  });
+
+  return result.totalCash;
 }

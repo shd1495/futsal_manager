@@ -2,8 +2,26 @@ import { prisma } from '../utils/prisma/index.js';
 import { Prisma } from '@prisma/client';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
-import { PICKUP_TYPE, PICKUP_AMOUNT, PICKUP_PRICE } from '../utils/enum.js';
-import { calculateValue, calculatePrice, calculatePickupRate } from '../utils/valuation.js';
+import playerService from '../services/player.service.js';
+import { checkCash, createCashLog } from './cash.controller.js';
+import {
+  PICKUP_TYPE,
+  PICKUP_AMOUNT,
+  PICKUP_PRICE,
+  PLAYER_RANKS,
+  UPGRADE_RESULTS,
+} from '../utils/enum.js';
+import {
+  UPGRADE_COST,
+  MAX_UPGRADE_MATERIALS,
+  UPGRADE_SUCCESS_RATES,
+  UPGRADE_MATERIAL_BONUSES,
+  DOWNGRADE_RATES,
+  DESTRUCTION_RATES,
+  NEXT_RANK,
+  PREV_RANK,
+} from '../utils/constants.js';
+import { MESSAGE_UPGRADE_RESULT } from '../utils/messages.js';
 
 /**
  * 팀 편성 로직
@@ -63,29 +81,24 @@ export async function createLineup(req, res, next) {
     }
 
     // 팀 편성
-    for (let i = 0; i < rosterIds.length; i++) {
-      const rosterId = rosterIds[i];
-      const existRosterId = existRosterIds[i];
+    await prisma.$transaction(async (tx) => {
+      // 기존 편성 삭제
+      await tx.lineup.deleteMany({
+        where: { accountId: accountId },
+      });
 
-      // 기존 정보 업데이트
-      if (existRosterIds.length === 3) {
-        await prisma.lineup.update({
-          where: {
-            accountId,
-            rosterId: existRosterId,
-          },
-          data: { rosterId: rosterId },
-        });
-        // 첫 편성일 경우, 선수를 판매했을 경우 생성
-      } else if (existRosterIds.length < 3) {
-        await prisma.lineup.create({
+      // 편성 추가
+      const createLineup = rosterIds.map((rosterId) => {
+        return tx.lineup.create({
           data: {
-            accountId,
-            rosterId,
+            accountId: accountId,
+            rosterId: rosterId,
           },
         });
-      }
-    }
+      });
+
+      await Promise.all(createLineup);
+    });
 
     return res.status(201).json({ message: '팀 편성이 완료되었습니다.' });
   } catch (error) {
@@ -108,15 +121,6 @@ export async function pickupPlayer(req, res, next) {
   try {
     // 계정 인증+인가
     await accountService.checkAccount(accountId, authAccountId);
-
-    // 이거 캐시 구현할때 그대로 쓰셔도 될듯합니다
-    // // 잔액 확인
-    // const cashLog = await prisma.cashLog.findFirst({
-    //   where: { accountId },
-    //   orderBy: { createAt: 'desc' },
-    // });
-    // if (!cashLog || cashLog.totalCash < PICKUP_PRICE * numPulls)
-    //   throw throwError('캐시 잔액이 부족합니다.', 402);
 
     // 뽑기권 확인
     if (!(pickupType in PICKUP_TYPE)) throw throwError('올바르지 않은 뽑기권 종류입니다.', 400);
@@ -174,22 +178,30 @@ export async function pickupPlayer(req, res, next) {
           // 뽑기
           if (PICKUP_TYPE[pickupType] == 'top_100') {
             let random = Math.random() * 1e5; // 0 ~ 100000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           } else if (PICKUP_TYPE[pickupType] == 'top_500') {
             let random = Math.random() * (5 * 1e5); // 0 ~ 500000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           } else {
-            let random = Math.random() * 1e7; // 0 ~ 10000000
-            playerList.forEach((player) => {
-              rateSum += calculatePickupRate(calculateValue(player));
+            let random = Math.random() * 1e6; // 0 ~ 1000000
+            for (const player of playerList) {
+              rateSum += await playerService.calculatePickupRate(
+                await playerService.calculateValue(player),
+              );
               if (pickup === null && rateSum >= random) pickup = player;
-            });
+            }
           }
 
           await tx.pickupToken.deleteMany({
@@ -221,6 +233,189 @@ export async function pickupPlayer(req, res, next) {
 }
 
 /**
+ * 선수 강화 로직
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns
+ */
+export async function upgradePlayer(req, res, next) {
+  const accountId = +req.params.accountId;
+  const authAccountId = +req.account;
+  const { targetId, materials } = req.body; // 강화할 선수 rosterId // 강화재료로 소모할 선수들
+
+  try {
+    // 계정 인증+인가
+    await accountService.checkAccount(accountId, authAccountId);
+
+    // 파라미터 무결성 확인
+    if (!+targetId || isNaN(+targetId)) throw throwError('올바르지 않은 targetId 형식입니다.', 400);
+    if (!materials) materials = []; // 빈 강화재료 input 형식 통일
+    if (!Array.isArray(materials)) throw throwError('올바르지 않은 materials 형식입니다.', 400);
+
+    for (const material of materials) {
+      if (!material || isNaN(material))
+        throw throwError('올바르지 않은 materials 형식입니다.', 400);
+    }
+
+    // 최대 강화재료 수 초과 여부 확인
+    if (materials.length > MAX_UPGRADE_MATERIALS)
+      throw throwError(`강화재료는 최대 ${MAX_UPGRADE_MATERIALS}개만 사용 가능합니다.`, 400);
+
+    let materialSet = new Set(materials);
+    if (materials.length != materialSet.size)
+      throw throwError('동일한 선수를 중복해서 강화재료로 선택할 수 없습니다.', 400);
+
+    // 캐시 잔액 확인
+    await checkCash(prisma, accountId, UPGRADE_COST);
+
+    // 강화대상 선수 보유 여부 확인
+    const targetRoster = await prisma.roster.findFirst({
+      where: {
+        accountId: accountId,
+        rosterId: +targetId,
+      },
+      select: {
+        rosterId: true,
+        rank: true,
+      },
+    });
+
+    if (!targetRoster) throw throwError('강화할 선수를 보유하고 있지 않습니다.', 404);
+
+    // 라인업에 있는 선수 선택 불가능
+    const targetLineup = await prisma.roster.findFirst({
+      where: {
+        accountId: accountId,
+        rosterId: +targetId,
+      },
+      select: {
+        rosterId: true,
+      },
+    });
+
+    if (targetLineup.length > 0) throw throwError('강화할 선수를 라인업에서 먼저 빼주세요', 400);
+
+    // 최대강화 도달 여부 확인
+    let targetRank = targetRoster.rank;
+    if (targetRank === PLAYER_RANKS.LEGENDARY)
+      throw throwError('이미 최대로 강화된 선수입니다.', 400);
+
+    // 기본 강화 성공률
+    let successRate = UPGRADE_SUCCESS_RATES.get(targetRank);
+    let bonusRate = 0;
+
+    // 강화재료 적용
+    for (const materialId of materials) {
+      const materialRoster = await prisma.roster.findFirst({
+        where: {
+          accountId: accountId,
+          rosterId: +materialId,
+        },
+        select: {
+          rosterId: true,
+          rank: true,
+        },
+      });
+
+      // 강화재료로 사용할 선수 보유 여부 확인
+      if (!materialRoster)
+        throw throwError('강화재료로 사용할 선수를 보유하고 있지 않습니다.', 400);
+
+      // 라인업에 있는 선수 선택 불가능
+      const materialLineup = await prisma.roster.findFirst({
+        where: {
+          accountId: accountId,
+          rosterId: +materialId,
+        },
+        select: {
+          rosterId: true,
+        },
+      });
+
+      if (materialLineup.length > 0)
+        throw throwError('강화재료로 사용할 선수를 라인업에서 먼저 빼주세요', 400);
+
+      // 강화 보너스 성공률 적용
+      bonusRate += UPGRADE_MATERIAL_BONUSES.get(materialRoster.rank);
+      console.log(bonusRate);
+    }
+    successRate = Math.min(successRate * (1 + bonusRate), 1);
+    console.log(successRate);
+
+    // 강화 진행
+    let result = null;
+    await prisma.$transaction(
+      async (tx) => {
+        let successRandom = Math.random();
+
+        // 강화 성공시:
+        if (successRate > successRandom) {
+          // 선수 강화
+          result = UPGRADE_RESULTS.SUCCESS;
+          await tx.roster.update({
+            data: {
+              rank: NEXT_RANK.get(targetRank),
+            },
+            where: {
+              rosterId: +targetId,
+            },
+          });
+
+          // 강화 실패시:
+        } else {
+          // 강화 페널티 판정
+          let penaltyRandom = Math.random();
+          // 파괴
+          if (DESTRUCTION_RATES.get(targetRank) > penaltyRandom) {
+            result = UPGRADE_RESULTS.DESTROYED;
+            await tx.roster.delete({
+              where: {
+                rosterId: +targetId,
+              },
+            });
+            // 등급 하락
+          } else if (DOWNGRADE_RATES.get(targetRank) > penaltyRandom) {
+            result = UPGRADE_RESULTS.DOWNGRADE;
+            await tx.roster.update({
+              data: {
+                rank: PREV_RANK.get(targetRank),
+              },
+              where: {
+                rosterId: +targetId,
+              },
+            });
+            // 페널티 없음
+          } else {
+            result = UPGRADE_RESULTS.FAILURE;
+          }
+        }
+
+        // 캐시 소모
+        const purpose = 'upgrade';
+        await createCashLog(tx, purpose, accountId, -UPGRADE_COST);
+
+        // 강화 재료 소모
+        for (const materialId of materials) {
+          await prisma.roster.delete({
+            where: {
+              rosterId: +materialId,
+            },
+          });
+        }
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    );
+
+    return res.status(201).json({ message: MESSAGE_UPGRADE_RESULT.get(result) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * 선수 판매 로직
  * @param {*} req
  * @param {*} res
@@ -239,8 +434,10 @@ export async function sellPlayer(req, res, next) {
     // 보유 선수 정보
     const roster = await prisma.roster.findUnique({
       where: { accountId: accountId, rosterId: rosterId },
+      include: { player: true },
     });
     if (!roster) throw throwError('선수를 보유하고 있지 않습니다.', 404);
+    if (!roster.player) throw throwError('선수가 존재하지 않습니다.', 404);
 
     // 가장 최근 캐쉬 변동 내역
     const cashLog = await prisma.cashLog.findFirst({
@@ -253,29 +450,18 @@ export async function sellPlayer(req, res, next) {
     const lineup = await prisma.lineup.findMany({
       where: { accountId, rosterId },
     });
-    console.log(lineup);
     if (lineup.length > 0)
       throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
-    // 선수 정보
-    const player = await prisma.players.findFirst({
-      where: { playerId: roster.playerId },
-    });
-    if (!player) throw throwError('선수가 존재하지 않습니다.', 404);
-
     // 선수 가격
-    const price = calculatePrice(calculateValue(player));
+    const price = await playerService.calculatePrice(
+      await playerService.calculateValue(roster.player, roster.rank),
+    );
 
     const result = await prisma.$transaction(async (tx) => {
       // 캐쉬 변동 내역
-      const result = await tx.cashLog.create({
-        data: {
-          accountId: accountId,
-          totalCash: cashLog.totalCash + price,
-          purpose: 'sell',
-          cashChange: price,
-        },
-      });
+      const purpose = 'sell';
+      const result = await createCashLog(tx, purpose, accountId, price);
 
       // 선수 판매
       await tx.roster.delete({
@@ -284,9 +470,10 @@ export async function sellPlayer(req, res, next) {
       return result;
     });
 
-    return res
-      .status(201)
-      .json({ message: `${player.playerName} 선수를 판매했습니다.`, totalCash: result.totalCash });
+    return res.status(201).json({
+      message: `${roster.player.playerName} 선수를 판매했습니다.`,
+      totalCash: result,
+    });
   } catch (error) {
     next(error);
   }
@@ -324,12 +511,14 @@ export async function getPlayers(req, res, next) {
         where: { playerId: item.playerId },
         select: {
           playerName: true,
+          style: true,
         },
       });
       const playerName = player.playerName;
+      const style = player.style;
       const rank = item.rank;
 
-      result.push({ rosterId: item.rosterId, playerId: item.playerId, playerName, rank });
+      result.push({ rosterId: item.rosterId, playerId: item.playerId, playerName, rank, style });
     }
 
     res.status(200).json({ data: result });
@@ -358,12 +547,8 @@ export async function buyToken(req, res, next) {
     if (!(pickupAmount in PICKUP_AMOUNT)) throw throwError('올바르지 않은 뽑기 횟수입니다.', 400);
 
     // 잔액 확인
-    const cashLog = await prisma.cashLog.findFirst({
-      where: { accountId: accountId },
-      orderBy: { createAt: 'desc' },
-    });
     const cashUsage = PICKUP_PRICE[pickupType] * PICKUP_AMOUNT[pickupAmount];
-    if (!cashLog || cashLog.totalCash < cashUsage) throw throwError('캐시 잔액이 부족합니다.', 402);
+    await checkCash(prisma, accountId, cashUsage);
 
     const records = Array.from({ length: PICKUP_AMOUNT[pickupAmount] }, () => ({
       accountId: accountId,
@@ -377,14 +562,8 @@ export async function buyToken(req, res, next) {
       });
 
       // 캐쉬 반영
-      await tx.cashLog.create({
-        data: {
-          accountId: accountId,
-          totalCash: cashLog.totalCash - cashUsage,
-          purpose: 'token',
-          cashChange: -cashUsage,
-        },
-      });
+      const purpose = 'token';
+      await createCashLog(tx, purpose, accountId, -cashUsage);
     });
 
     return res.status(201).json({
@@ -409,11 +588,11 @@ export async function getAllPlayers(req, res, next) {
     const result = [];
     for (const player of playerList) {
       // 선수 가치
-      const value = calculateValue(player);
+      const value = await playerService.calculateValue(player);
       // 선수 가격
-      const price = calculatePrice(value);
+      const price = await playerService.calculatePrice(value);
       // 선수 뽑기
-      const pickupRate = calculatePickupRate(value);
+      const pickupRate = await playerService.calculatePickupRate(value);
 
       result.push({
         playerName: player.playerName,
@@ -440,7 +619,7 @@ export async function getAllPlayers(req, res, next) {
  * @param {*} res
  * @param {*} next
  */
-export async function getLinenup(req, res, next) {
+export async function getLineup(req, res, next) {
   const accountId = +req.params.accountId;
   const authAccountId = +req.account;
 
@@ -473,11 +652,13 @@ export async function getLinenup(req, res, next) {
         where: { playerId: roster.playerId },
         select: {
           playerName: true,
+          style: true,
         },
       });
       const rank = roster.rank;
       const playerName = player.playerName;
-      result.push({ playerName, rank });
+      const style = player.style;
+      result.push({ playerName, rank, style });
     }
 
     res.status(200).json({ data: result });
@@ -505,7 +686,9 @@ export async function rosterPl(req, res, next) {
     });
 
     // 선수 가격
-    const price = calculatePrice(calculateValue(rosterPlayer.player));
+    const price = await playerService.calculatePrice(
+      await playerService.calculateValue(rosterPlayer.player, rosterPlayer.rank),
+    );
 
     // 데이터 가공
     const result = {

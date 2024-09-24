@@ -36,8 +36,28 @@ export async function signAccount(req, res, next) {
     const existId = await prisma.accounts.findUnique({ where: { id: id } });
     if (existId) throw throwError(`중복된 아이디입니다.`, 409);
 
-    const signAccount = await prisma.accounts.create({
-      data: { id: id, password: hashedPassword, name: name },
+    let signAccount;
+    await prisma.$transaction(async (tx) => {
+      signAccount = await tx.accounts.create({
+        data: { id: id, password: hashedPassword, name: name },
+      });
+      signAccount.accountId;
+
+      await tx.pickupToken.createMany({
+        data: Array(3).fill({
+          accountId: signAccount.accountId,
+          type: 'ALL',
+        }),
+      });
+
+      await tx.cashLog.create({
+        data: {
+          accountId: signAccount.accountId,
+          totalCash: 0,
+          purpose: 'createAccount',
+          cashChange: 0,
+        },
+      });
     });
 
     res.status(201).json({ id_info: { id: signAccount.id, name: signAccount.name } });
@@ -112,7 +132,7 @@ export async function inquireAccount(req, res, next) {
   try {
     const account = await accountService.checkAccount(accountId, authAccountId);
 
-    const accountInfo = { name: account.name, rankScore: account.rankScore };
+    const accountInfo = { id: account.id, name: account.name, rankScore: account.rankScore };
 
     res.status(200).json({ accountInfo });
   } catch (error) {
@@ -164,7 +184,7 @@ export async function remainingToken(req, res, next) {
   const authAccountId = +req.account;
 
   try {
-    accountService.checkAccount(accountId, authAccountId);
+    await accountService.checkAccount(accountId, authAccountId);
 
     // all 뽑기권 갯수
     const AllPickupToken = await prisma.pickupToken.findMany({
