@@ -1,99 +1,13 @@
 import { prisma } from '../utils/prisma/index.js';
 import { throwError } from '../utils/error/error.handle.js';
 import accountService from '../services/account.service.js';
-
-async function penaltyKick(homeLineup, awayLineup) {
-  // // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
-  let homeDefender = homeLineup[0].roster.player;
-  for (const lineup of homeLineup) {
-    if (lineup.roster.player.defense > homeDefender.defense) {
-      homeDefender = lineup.roster.player;
-    }
-  }
-
-  // 상대 팀에서 defense 값이 가장 높은 선수 찾기
-  let awayDefender = awayLineup[0].roster.player;
-  for (const lineup of awayLineup) {
-    if (lineup.roster.player.defense > awayDefender.defense) {
-      awayDefender = lineup.roster.player;
-    }
-  }
-
-  // 승부차기 로직
-  let homePenaltyScore = 0;
-  let awayPenaltyScore = 0;
-  let round = 1;
-
-  while (round <= homeLineup.length || homePenaltyScore === awayPenaltyScore) {
-    // 공격자는 라인업 순서대로 돌아가며 슛을 함
-    const homeAttacker = homeLineup[(round - 1) % homeLineup.length].roster.player;
-    const awayAttacker = awayLineup[(round - 1) % awayLineup.length].roster.player;
-
-    // 호스트 팀의 공격: 호스트 공격자 vs 상대 수비자
-    if (performKick(homeAttacker, awayDefender)) {
-      homePenaltyScore++;
-    }
-
-    // 상대 팀의 공격: 상대 공격자 vs 호스트 수비자
-    if (performKick(awayAttacker, homeDefender)) {
-      awayPenaltyScore++;
-    }
-
-    round++;
-  }
-
-  // 결과 반환
-  if (homePenaltyScore > awayPenaltyScore) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-// 킥 수행 로직: 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
-function performKick(attacker, defender) {
-  const attackScore = attacker.shootAccuracy + attacker.shootPower;
-  const randomAttack = Math.random() * attackScore;
-  const randomDefense = Math.random() * defender.defense;
-
-  return randomAttack > randomDefense;
-}
-
-// 팀 스탯 계산 함수
-function calculateTeamStats(lineup) {
-  const styles = [];
-  const stats = {
-    speed: 0,
-    shootAccuracy: 0,
-    shootPower: 0,
-    defense: 0,
-    stamina: 0,
-  };
-
-  for (const lineupItem of lineup) {
-    styles.push(lineupItem.roster.player.style);
-    stats.speed += lineupItem.roster.player.speed;
-    stats.shootAccuracy += lineupItem.roster.player.shootAccuracy;
-    stats.shootPower += lineupItem.roster.player.shootPower;
-    stats.defense += lineupItem.roster.player.defense;
-    stats.stamina += lineupItem.roster.player.stamina;
-  }
-
-  return { styles, stats };
-}
-
-// 팀 컬러 산정 함수
-function getTeamStyle(styles) {
-  const countMap = {};
-  let teamStyle = '';
-
-  for (const item of styles) {
-    countMap[item] = (countMap[item] || 0) + 1;
-    if (countMap[item] >= 2) teamStyle = item;
-  }
-
-  return teamStyle;
-}
+import gameService from '../services/game.service.js';
+import {
+  NUM_PLAYERS,
+  RANDOM_RANGE,
+  SHOOTABLE_DISTANCE,
+  TEAM_COLOR_ADVANTAGE,
+} from '../utils/constants.js';
 
 /**
  * 매치메이킹 로직
@@ -118,13 +32,12 @@ export async function matchMaking(req, res, next) {
     if (homeLineup.length < 3) throw throwError('팀 편성을 완료해주세요.', 400);
 
     // 상대 목록
-    // 여기서 lineup.length === 3인 애들만 필터링
     const awayPool = await prisma.accounts.findMany({
       where: {
         accountId: { not: accountId },
         rankScore: {
-          gte: homeAccount.rankScore - 200, // 최소
-          lte: homeAccount.rankScore + 200, // 최대
+          gte: homeAccount.rankScore - 500, // 최소
+          lte: homeAccount.rankScore + 500, // 최대
         },
       },
     });
@@ -152,9 +65,11 @@ export async function matchMaking(req, res, next) {
     }
 
     // 내 팀 점수
-    const { styles: homeStyle, stats: homeStats } = calculateTeamStats(homeLineup);
+    const { styles: homeStyle, stats: homeStats } =
+      await gameService.calculateTeamStats(homeLineup);
     // 상대 팀 점수
-    const { styles: awayStyle, stats: awayStats } = calculateTeamStats(awayLineup);
+    const { styles: awayStyle, stats: awayStats } =
+      await gameService.calculateTeamStats(awayLineup);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
     const isHomeStyle = await gameService.getTeamStyle(homeStyle);
@@ -184,9 +99,6 @@ export async function matchMaking(req, res, next) {
       await gameService.modifyStats(awayStats, TEAM_COLOR_ADVANTAGE, '*');
     }
 
-    const AVG_PLAYERS = 3;
-    const DEFAULT_RANGE = 30;
-
     let ball = 0;
     const goal = [0, 0];
     const gameLog = [];
@@ -201,10 +113,8 @@ export async function matchMaking(req, res, next) {
 
       // 공 이동 및 이동 거리 (랜덤 요소 추가)
       const randomFactor = Math.round(
-        Math.random() * DEFAULT_RANGE * 2 - // 0 ~ 60
-          DEFAULT_RANGE + // -21 ~ 39
-          DEFAULT_RANGE * (advantage / 100),
-      ); // 9
+        Math.random() * RANDOM_RANGE * 2 - RANDOM_RANGE + RANDOM_RANGE * (advantage / 100),
+      );
       ball += randomFactor;
       if (randomFactor >= 0) {
         gameLog.push(
@@ -217,7 +127,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // home 골 찬스
-      if (ball >= 80) {
+      if (ball >= SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((homeStats.shootAccuracy + homeStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - awayStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -230,7 +140,7 @@ export async function matchMaking(req, res, next) {
       }
 
       // away 골 찬스
-      if (ball <= -80) {
+      if (ball <= -SHOOTABLE_DISTANCE) {
         const goalRate = Math.min((awayStats.shootAccuracy + awayStats.shootPower) / 2, 100);
         // 골 확률
         if (goalRate - homeStats.defense / (Math.random() + 2) > Math.random() * 100) {
@@ -272,7 +182,6 @@ export async function matchMaking(req, res, next) {
     }
     const game = await prisma.$transaction(async (tx) => {
       // 경기 결과 등록
-      // $$ 상대방 game도 등록해줘야 함 $$
       const game = await tx.game.create({
         data: {
           homeId: accountId,
@@ -311,7 +220,7 @@ export async function matchMaking(req, res, next) {
 
     return res.status(201).json({
       gameLog: [...gameLog],
-      data: game,
+      result: `경기 결과: [${goal[0]}:${goal[1]}]로 ${isWin ? homeAccount.id + '(home)' : awayLineup[0].account.id + '(away)'} 팀이 ${goal[0] == goal[1] ? '승부차기로 인해' : ''}  승리했습니다.`,
     });
   } catch (error) {
     next(error);
