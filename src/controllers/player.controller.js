@@ -181,26 +181,20 @@ export async function pickupPlayer(req, res, next) {
             let random = Math.random() * 1e5; // 0 ~ 100000
 
             for (const player of playerList) {
-              rateSum += await playerService.calculatePickupRate(
-                await playerService.calculateValue(player),
-              );
+              rateSum += playerService.calculatePickupRate(playerService.calculateValue(player));
               if (pickup === null && rateSum >= random) pickup = player;
             }
           } else if (PICKUP_TYPE[pickupType] == 'top_500') {
             let random = Math.random() * (5 * 1e5); // 0 ~ 500000
 
             for (const player of playerList) {
-              rateSum += await playerService.calculatePickupRate(
-                await playerService.calculateValue(player),
-              );
+              rateSum += playerService.calculatePickupRate(playerService.calculateValue(player));
               if (pickup === null && rateSum >= random) pickup = player;
             }
           } else {
             let random = Math.random() * 1e6; // 0 ~ 1000000
             for (const player of playerList) {
-              rateSum += await playerService.calculatePickupRate(
-                await playerService.calculateValue(player),
-              );
+              rateSum += playerService.calculatePickupRate(playerService.calculateValue(player));
               if (pickup === null && rateSum >= random) pickup = player;
             }
           }
@@ -455,8 +449,8 @@ export async function sellPlayer(req, res, next) {
       throw throwError('라인업에 있는 선수입니다. 라인업에서 해제해주십시오.', 409);
 
     // 선수 가격
-    const price = await playerService.calculatePrice(
-      await playerService.calculateValue(roster.player, roster.rank),
+    const price = playerService.calculatePrice(
+      playerService.calculateValue(roster.player, roster.rank),
     );
 
     const result = await prisma.$transaction(async (tx) => {
@@ -589,11 +583,11 @@ export async function getAllPlayers(req, res, next) {
     const result = [];
     for (const player of playerList) {
       // 선수 가치
-      const value = await playerService.calculateValue(player);
+      const value = playerService.calculateValue(player);
       // 선수 가격
-      const price = await playerService.calculatePrice(value);
+      const price = playerService.calculatePrice(value);
       // 선수 뽑기
-      const pickupRate = await playerService.calculatePickupRate(value);
+      const pickupRate = playerService.calculatePickupRate(value);
 
       result.push({
         playerName: player.playerName,
@@ -687,8 +681,8 @@ export async function rosterPl(req, res, next) {
     });
 
     // 선수 가격
-    const price = await playerService.calculatePrice(
-      await playerService.calculateValue(rosterPlayer.player, rosterPlayer.rank),
+    const price = playerService.calculatePrice(
+      playerService.calculateValue(rosterPlayer.player, rosterPlayer.rank),
     );
 
     // 데이터 가공

@@ -16,7 +16,7 @@ class PlayerService {
    * @param { Object } player
    * @returns { Int }
    */
-  async calculateValue(player, rank = null) {
+  calculateValue(player, rank = null) {
     const { speed, shootAccuracy, shootPower, defense, stamina } = player;
     let bonus = 1;
     if (rank) {
@@ -44,7 +44,7 @@ class PlayerService {
    * @param { Int } value
    * @returns { Int }
    */
-  async calculatePrice(value) {
+  calculatePrice(value) {
     // 가격 = 가치 * 10000
     return Math.round(value * 60);
   }
@@ -53,7 +53,7 @@ class PlayerService {
    * @param { Int } value
    * @returns { Int }
    */
-  async calculatePickupRate(value) {
+  calculatePickupRate(value) {
     // 최소값 1을 보장하기 위해 Math.max 사용
     return Math.max(Math.round((1 / value) * 1e5), 1); // 스케일링 조정 가능
   }

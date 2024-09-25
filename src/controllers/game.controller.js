@@ -65,23 +65,21 @@ export async function matchMaking(req, res, next) {
     }
 
     // 내 팀 점수
-    const { styles: homeStyle, stats: homeStats } =
-      await gameService.calculateTeamStats(homeLineup);
+    const { styles: homeStyle, stats: homeStats } = gameService.calculateTeamStats(homeLineup);
     // 상대 팀 점수
-    const { styles: awayStyle, stats: awayStats } =
-      await gameService.calculateTeamStats(awayLineup);
+    const { styles: awayStyle, stats: awayStats } = gameService.calculateTeamStats(awayLineup);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isHomeStyle = await gameService.getTeamStyle(homeStyle);
+    const isHomeStyle = gameService.getTeamStyle(homeStyle);
 
     // 같은 팀 컬러가 2개 이상이면 팀 컬러 설정
-    const isAwayStyle = await gameService.getTeamStyle(awayStyle);
+    const isAwayStyle = gameService.getTeamStyle(awayStyle);
 
     // 내 팀 스탯 평균 계산
-    await gameService.modifyStats(homeStats, homeLineup.length, '/');
+    gameService.modifyStats(homeStats, homeLineup.length, '/');
 
     // 상대팀 스탯 평균 계산
-    await gameService.modifyStats(awayStats, awayLineup.length, '/');
+    gameService.modifyStats(awayStats, awayLineup.length, '/');
 
     // 팀 컬러 상성
     const advantageMap = {
@@ -92,11 +90,11 @@ export async function matchMaking(req, res, next) {
 
     // home 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isHomeStyle] == isAwayStyle || (isHomeStyle && !isAwayStyle)) {
-      await gameService.modifyStats(homeStats, TEAM_COLOR_ADVANTAGE, '*');
+      gameService.modifyStats(homeStats, TEAM_COLOR_ADVANTAGE, '*');
     }
     // away 상성이 유리하거나 상대가 팀컬러가 없으면
     if (advantageMap[isAwayStyle] == isHomeStyle || (!isHomeStyle && isAwayStyle)) {
-      await gameService.modifyStats(awayStats, TEAM_COLOR_ADVANTAGE, '*');
+      gameService.modifyStats(awayStats, TEAM_COLOR_ADVANTAGE, '*');
     }
 
     let ball = 0;
@@ -156,18 +154,18 @@ export async function matchMaking(req, res, next) {
       homeStats.stamina *= 0.97;
       if (i % 10 == 0) {
         if (homeStats.stamina < 50) {
-          await gameService.modifyStats(homeStats, 0.9, '*', false);
+          gameService.modifyStats(homeStats, 0.9, '*', false);
         } else if (homeStats.stamina < 25) {
-          await gameService.modifyStats(homeStats, 0.9, '*', false);
+          gameService.modifyStats(homeStats, 0.9, '*', false);
         }
       }
 
       awayStats.stamina *= 0.97;
       if (i % 10 == 0) {
         if (awayStats.stamina < 50) {
-          await gameService.modifyStats(awayStats, 0.9, '*', false);
+          gameService.modifyStats(awayStats, 0.9, '*', false);
         } else if (awayStats.stamina < 25) {
-          await gameService.modifyStats(awayStats, 0.8, '*', false);
+          gameService.modifyStats(awayStats, 0.8, '*', false);
         }
       }
     }
@@ -178,7 +176,7 @@ export async function matchMaking(req, res, next) {
 
     // 무승부일 경우 승부차기
     if (goal[0] === goal[1]) {
-      isWin = await gameService.penaltyKick(homeLineup, awayLineup);
+      isWin = gameService.penaltyKick(homeLineup, awayLineup);
     }
     const game = await prisma.$transaction(async (tx) => {
       // 경기 결과 등록
@@ -196,7 +194,7 @@ export async function matchMaking(req, res, next) {
         where: { accountId: accountId },
         data: {
           //rankScore: isWin ? homeAccount.rankScore + 10 : homeAccount.rankScore - 10,
-          rankScore: await gameService.calculateElo(
+          rankScore: gameService.calculateElo(
             homeAccount.rankScore,
             awayLineup[0].account.rankScore,
             isWin,
@@ -208,7 +206,7 @@ export async function matchMaking(req, res, next) {
         where: { accountId: away.accountId },
         data: {
           //rankScore: !isWin ? away.rankScore + 10 : away.rankScore - 10,
-          rankScore: await gameService.calculateElo(
+          rankScore: gameService.calculateElo(
             homeAccount.rankScore,
             awayLineup[0].account.rankScore,
             !isWin,

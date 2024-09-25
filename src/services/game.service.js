@@ -17,7 +17,7 @@ class GameService {
    * @param {Object} awayLineup
    * @returns {Boolean} isWin
    */
-  async penaltyKick(homeLineup, awayLineup) {
+  penaltyKick(homeLineup, awayLineup) {
     // // 호스트 팀에서 defense 값이 가장 높은 선수 찾기
     let homeDefender = homeLineup[0].roster.player;
     for (const lineup of homeLineup) {
@@ -45,12 +45,12 @@ class GameService {
       const awayAttacker = awayLineup[(round - 1) % awayLineup.length].roster.player;
 
       // 호스트 팀의 공격: 호스트 공격자 vs 상대 수비자
-      if (await gameService.performKick(homeAttacker, awayDefender)) {
+      if (gameService.performKick(homeAttacker, awayDefender)) {
         homePenaltyScore++;
       }
 
       // 상대 팀의 공격: 상대 공격자 vs 호스트 수비자
-      if (await gameService.performKick(awayAttacker, homeDefender)) {
+      if (gameService.performKick(awayAttacker, homeDefender)) {
         awayPenaltyScore++;
       }
 
@@ -72,7 +72,7 @@ class GameService {
    * @returns
    * @author 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
    */
-  async performKick(attacker, defender) {
+  performKick(attacker, defender) {
     const attackScore = attacker.shootAccuracy + attacker.shootPower;
     const randomAttack = Math.random() * attackScore;
     const randomDefense = Math.random() * defender.defense;
@@ -85,7 +85,7 @@ class GameService {
    * @param {Object} lineup
    * @returns {Object} styles, stats
    */
-  async calculateTeamStats(lineup) {
+  calculateTeamStats(lineup) {
     const styles = [];
     const stats = {
       speed: 0,
@@ -123,7 +123,7 @@ class GameService {
    * @param {Array} styles
    * @returns {String} style
    */
-  async getTeamStyle(styles) {
+  getTeamStyle(styles) {
     const countMap = {};
     let teamStyle = '';
 
@@ -141,7 +141,7 @@ class GameService {
    * @param {float} amount
    * @param {String} operator
    */
-  async modifyStats(player, amount, operator, modifyStamina = true) {
+  modifyStats(player, amount, operator, modifyStamina = true) {
     if (operator === '+') {
       player.speed += amount;
       player.shootAccuracy += amount;
@@ -164,7 +164,6 @@ class GameService {
     }
   }
 
-
   /**
    * ELO 계산
    * @param {Int} homeElo
@@ -174,9 +173,9 @@ class GameService {
    * @returns
    * @author 공격자의 슛 정밀도와 슛 파워를 더한 값 vs 수비자의 디펜스
    */
-  async calculateElo(homeElo, awayElo, isWin, kFactor = 32) {
+  calculateElo(homeElo, awayElo, isWin, kFactor = 32) {
     const expectedScore = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
-    const winFactor = isWin ? 1 : 0
+    const winFactor = isWin ? 1 : 0;
 
     return homeElo + kFactor * (winFactor - expectedScore);
   }
