@@ -48,9 +48,13 @@
 
 - [x] 게임 매치메이킹 API (JWT 인증) - POST /match/:accountId
 
+## 와이어 프레임
+
+[![pngwing com (1)](https://github.com/user-attachments/assets/d6ab3721-9e30-44b2-adb5-7a3fb6652db6)](https://www.figma.com/board/Gcd6AzmTOjaDKNC2pqe3IL/%ED%92%8B%EC%82%B4-%EC%98%A8%EB%9D%BC%EC%9D%B8?node-id=0-1&node-type=canvas&t=Ud4obTUk64JFsNwJ-0)
+
 ## API 명세서
 
-https://www.notion.so/teamsparta/3b4d6d8385754bf98799c1119d65266a?v=adef0bb8e88f4dc1840fe3d95687c5f4
+[![pngwing com](https://github.com/user-attachments/assets/0b16d6ab-5527-4ff3-8201-a86b290ee0ed)](https://www.notion.so/teamsparta/3b4d6d8385754bf98799c1119d65266a?v=adef0bb8e88f4dc1840fe3d95687c5f4)
 
 ## ERD
 
